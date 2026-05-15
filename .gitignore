@@ -1,0 +1,10 @@
+node_modules/
+build/
+.env
+bun.lockb
+
+# Sentry Config File
+.sentryclirc
+
+src/generated
+.vrchat_cookies/
