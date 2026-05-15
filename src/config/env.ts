@@ -23,6 +23,27 @@ const envSchema = z.object({
     .enum(["DEBUG", "INFO", "WARN", "ERROR"])
     .default("INFO")
     .transform((val) => val.toUpperCase()),
+
+  WEBLATE_BASE_URL: z
+    .string()
+    .url("WEBLATE_BASE_URL must be a valid URL")
+    .optional(),
+  WEBLATE_API_TOKEN: z.string().optional(),
+  WEBLATE_PROJECT_SLUG: z.string().min(1).optional(),
+  DISCONITE_FORUM_BASE_URL: z
+    .string()
+    .url("DISCONITE_FORUM_BASE_URL must be a valid URL")
+    .optional(),
+
+  /** YouTube Data API v3 — channel snippets and statistics for socials previews. */
+  YOUTUBE_API_KEY: z.string().min(1).optional(),
+  /** X (Twitter) API v2 app-only bearer token — user profile lookups. */
+  X_API_BEARER_TOKEN: z.string().min(1).optional(),
+  /** Twitch Helix client id — user profile and follower totals. */
+  TWITCH_CLIENT_ID: z.string().min(1).optional(),
+  /** Reddit API app credentials (script/app) — oauth.reddit.com user about. */
+  REDDIT_CLIENT_ID: z.string().min(1).optional(),
+  REDDIT_CLIENT_SECRET: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

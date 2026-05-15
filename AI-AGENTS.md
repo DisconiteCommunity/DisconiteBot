@@ -68,15 +68,31 @@ Slash commands are published in **`clientReady`** via **`bot.initApplicationComm
 
 Use **`MessageFlags.Ephemeral`** for staff-only or noisy replies when appropriate.
 
-**Resonite helpers (slash, all under `/resonite search …`):**
+**Disconite helpers:**
+
+| Command | Purpose |
+|---------|---------|
+| `/disconite` `translate` | Info embed + link to the unofficial community translation site ([translate.disconite.net](https://translate.disconite.net)). |
+| `/disconite` `forum` | Info embed + links to [disconite.net](https://disconite.net) and the [welcome topic](https://disconite.net/t/welcome-to-the-disconite-forum/53/5). |
+| `/disconite search` `translation` `key` [`languages`] [`query`] [`ephemeral`] | Search [translate.disconite.net](https://translate.disconite.net) (Weblate). **`key`** and **`languages`** use autocomplete. Optional **`languages`**: comma-separated codes (e.g. `en,nl`); empty = all langs. One matching key → embed; several → string select menu. |
+| `/disconite search` `forum` `query` [`ephemeral`] | Search [disconite.net](https://disconite.net) via `GET /search.json`. **`query`** autocomplete suggests topics. One post → single embed; several → string select menu. Author lines are **forum accounts** (trust, roles, badges when available). |
+
+Optional env (defaults in code): `WEBLATE_BASE_URL`, `WEBLATE_API_TOKEN`, `DISCONITE_FORUM_BASE_URL`. See `.env.example`.
+
+Shared logic: `src/services/disconite/weblate/`, `src/services/disconite/discourse/`.
+
+**Resonite helpers:**
 
 | Command | Purpose |
 |---------|---------|
 | `/resonite search` `record` `url` | Parse `resrec://`, `https://api.resonite.com/open/world|session/…`, `Resonite:?world=…`, or pasted text containing those patterns; load metadata from **unauthenticated** `GET https://api.resonite.com/...` (records, sessions). Embed + link buttons (API JSON, open junction, thumbnail CDN when available). |
 | `/resonite search` `wiki` `query` [`ephemeral`] [`preview_chars`] | Optional **`preview_chars`** integer **500–1500** (default **500**) caps preview length for v2 text, pick-list description, and post-select embed. Exact title → Components v2 preview. If not exact: opensearch up to **10** hits; **one** hit → auto-load when possible, else one-option select. **Two or more** → embed list + string select; footer stores titles + ephemeral + **preview_chars** for the handler. |
 | `/resonite search` `account` `username` | `GET https://api.resonite.com/users?name=…` — public user list only (no login). Autocomplete suggests usernames from that API. |
+| `/resonite` `socials` `user` `platform` | Team roster in `src/services/resonite/team/resoniteTeamSocials.ts`. **`user`** autocomplete lists roster members. **`platform`** autocomplete only shows platforms that user has (`wiki`, `discord`, `twitter`, …, or `all`). A specific platform loads a **profile preview** (avatar/banner, bio, stats) via **official platform APIs only** (`platformPreview.ts`, `team/previews/`). **`all`** lists links with **Open** + **View profile** buttons; **All platforms** returns from preview. Members with only a wiki page get `wiki` / `all`; add optional `discord: { userId, username }` on a roster entry for Discord-only links. |
 
-Shared Resonite logic lives under `src/services/resonite/` in subfolders: `api/` (HTTP client), `wiki/`, `users/`, `records/` (sessions, record summaries, link parsing). No extra env vars: all endpoints used are read-only and public. The Resonite API is a WIP and may return 404 or limited fields without auth.
+Optional env for richer socials previews (see `.env.example`): `YOUTUBE_API_KEY` (YouTube Data API v3; without it, YouTube falls back to the official **oEmbed** endpoint only), `X_API_BEARER_TOKEN`, `TWITCH_CLIENT_ID`, `REDDIT_CLIENT_ID` + `REDDIT_CLIENT_SECRET`. GitHub, BlueSky, Mastodon/fediverse, wiki, and Discord use public or bot APIs with no extra keys. Platforms without API support (e.g. TikTok, generic websites) show links only.
+
+Shared Resonite logic lives under `src/services/resonite/` in subfolders: `api/` (HTTP client), `wiki/`, `users/`, `records/` (sessions, record summaries, link parsing), `team/` (socials roster). The Resonite cloud API is read-only and public. The Resonite API is a WIP and may return 404 or limited fields without auth.
 
 ### Events
 
@@ -113,6 +129,10 @@ Copy **`.env.example`** → **`.env`** and set:
 | `ENV` | No (`development`) | `development` \| `production` \| `test` |
 | `LOG_LEVEL` | No (`INFO`) | `DEBUG` \| `INFO` \| `WARN` \| `ERROR` |
 | `APPLICATION_ID` | No | Discord application id if tooling or future deploy scripts need it |
+| `WEBLATE_BASE_URL` | No | Weblate instance (default `https://translate.disconite.net`) |
+| `WEBLATE_PROJECT_SLUG` | No | Project slug for language autocomplete (default `resonite`) |
+| `WEBLATE_API_TOKEN` | No | Weblate API token if the instance requires auth |
+| `DISCONITE_FORUM_BASE_URL` | No | Discourse forum base URL (default `https://disconite.net`) |
 
 **Zod** validates URLs and numeric `PORT`. Empty strings in `.env` may fail validation—omit optional vars or set real values.
 

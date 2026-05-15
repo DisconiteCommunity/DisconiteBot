@@ -275,7 +275,7 @@ async function accountUsernameAutocomplete(
 @SlashGroup({
   name: "resonite",
   description:
-    "Resonite wiki, cloud accounts, and record/session links (public APIs).",
+    "Resonite wiki, accounts, records, and team socials (public APIs + roster).",
 })
 @SlashGroup({
   name: "search",
