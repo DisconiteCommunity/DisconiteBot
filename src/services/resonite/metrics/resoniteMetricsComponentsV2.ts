@@ -75,15 +75,31 @@ export function buildSessionMetricsContainer(
     );
   }
 
+  const linkButtons: ButtonBuilder[] = [];
   const sessionOrbUrl = display.sessionOrbUrl;
   if (sessionOrbUrl.startsWith("https://") || sessionOrbUrl.startsWith("http://")) {
+    linkButtons.push(
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Link)
+        .setLabel("Get session orb")
+        .setURL(sessionOrbUrl),
+    );
+  }
+  const sessionSiteUrl = display.sessionSiteUrl;
+  if (
+    sessionSiteUrl.startsWith("https://") ||
+    sessionSiteUrl.startsWith("http://")
+  ) {
+    linkButtons.push(
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Link)
+        .setLabel("View Session")
+        .setURL(sessionSiteUrl),
+    );
+  }
+  if (linkButtons.length > 0) {
     container.addActionRowComponents(
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setStyle(ButtonStyle.Link)
-          .setLabel("Get session orb")
-          .setURL(sessionOrbUrl),
-      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(...linkButtons),
     );
   }
 

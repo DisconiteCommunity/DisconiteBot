@@ -28,8 +28,11 @@ import { parseRecordInput } from "../../services/resonite/records/recordLinks.js
 import {
   buildRecordInventoryJsonApiUrl,
   buildGoResoniteSessionUrl,
+  buildGoResoniteWorldUrl,
   buildRecordJsonApiUrl,
+  buildOpenResoniteSessionUrl,
   buildSessionJsonApiUrl,
+  buildSessionResoniteComUrl,
   fetchRecordById,
   fetchRecordByInventoryPath,
   fetchSession,
@@ -561,15 +564,19 @@ export class ResoniteSearchCommands {
           sum.lines.length ? sum.lines.join("\n") : "No extra session fields.",
           4096,
         );
-        const openSession = `https://api.resonite.com/open/session/${encodeURIComponent(sum.sessionId)}`;
+        const openSession = buildOpenResoniteSessionUrl(sum.sessionId);
         const embed = new EmbedBuilder()
           .setTitle(sum.title)
           .setDescription(desc)
           .setFooter({ text: `${sum.sessionId} · ${openSession}` });
         const row = linkButtonRow([
           { label: "Session (API)", url: buildSessionJsonApiUrl(sum.sessionId) },
-          { label: "Open in Resonite", url: openSession },
+          { label: "Join session", url: openSession },
           { label: "Web preview", url: buildGoResoniteSessionUrl(sum.sessionId) },
+          {
+            label: "View Session",
+            url: buildSessionResoniteComUrl(sum.sessionId),
+          },
         ]);
         await interaction.reply({
           embeds: [embed],
@@ -611,7 +618,7 @@ export class ResoniteSearchCommands {
         parts.push(line);
       }
       if (summary.openInResoniteUrl) {
-        parts.push(`Open in Resonite: ${summary.openInResoniteUrl}`);
+        parts.push(`${summary.openInResoniteLabel}: ${summary.openInResoniteUrl}`);
       }
 
       const embed = new EmbedBuilder()
@@ -648,8 +655,17 @@ export class ResoniteSearchCommands {
             ];
       if (summary.openInResoniteUrl) {
         apiLinks.push({
-          label: "Open in Resonite",
+          label: summary.openInResoniteLabel,
           url: summary.openInResoniteUrl,
+        });
+      }
+      if (
+        summary.recordType?.toLowerCase() === "world" &&
+        summary.recordId.startsWith("R-")
+      ) {
+        apiLinks.push({
+          label: "Web preview",
+          url: buildGoResoniteWorldUrl(summary.ownerId, summary.recordId),
         });
       }
       if (summary.imageUrl) {

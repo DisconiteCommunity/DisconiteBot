@@ -1,5 +1,8 @@
 import { stripResoniteRichText } from "../../../utility/text/resoniteRichText.js";
-import { buildOpenResoniteSessionUrl } from "../records/records.js";
+import {
+  buildOpenResoniteSessionUrl,
+  buildSessionResoniteComUrl,
+} from "../records/records.js";
 import type {
   ResoniteOnlineStatsDto,
   ResoniteCloudStatsDto,
@@ -150,6 +153,8 @@ export type SessionMetricsDisplay = {
   accentColor: number;
   /** `https://api.resonite.com/open/session/…` (HTTPS; opens client via deeplink). */
   sessionOrbUrl: string;
+  /** `https://session.resonite.com/session/…` (web session page). */
+  sessionSiteUrl: string;
   thumbnailUrl: string | null;
 };
 
@@ -165,6 +170,7 @@ export function sessionMetricsDisplay(
 
   const sessionId = session.sessionId ?? "";
   const sessionOrbUrl = sessionId ? buildOpenResoniteSessionUrl(sessionId) : "";
+  const sessionSiteUrl = sessionId ? buildSessionResoniteComUrl(sessionId) : "";
 
   const begin = session.sessionBeginTime
     ? Date.parse(session.sessionBeginTime)
@@ -212,6 +218,7 @@ export function sessionMetricsDisplay(
     textContent: `# ${title}\n${bodyLines.join("\n")}`,
     accentColor: session.headlessHost ? 0x3498db : 0x2ecc71,
     sessionOrbUrl,
+    sessionSiteUrl,
     thumbnailUrl: thumb || null,
   };
 }

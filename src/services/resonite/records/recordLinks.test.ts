@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildOpenInResoniteUrl,
+  openInResoniteRecordButtonLabel,
   parseRecordInput,
 } from "./recordLinks.js";
 
@@ -121,5 +122,14 @@ describe("buildOpenInResoniteUrl", () => {
     expect(buildOpenInResoniteUrl("U-a b", "R-x")).toBe(
       "https://api.resonite.com/open/world/U-a%20b/R-x",
     );
+  });
+});
+
+describe("openInResoniteRecordButtonLabel", () => {
+  it("maps record types to action labels", () => {
+    expect(openInResoniteRecordButtonLabel("world")).toBe("Open world");
+    expect(openInResoniteRecordButtonLabel("object")).toBe("Spawn item");
+    expect(openInResoniteRecordButtonLabel("directory")).toBe("Open folder");
+    expect(openInResoniteRecordButtonLabel("texture")).toBe("Open in Resonite");
   });
 });

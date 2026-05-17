@@ -110,6 +110,9 @@ describe("sessionMetricsDisplay", () => {
     expect(display.sessionOrbUrl).toBe(
       "https://api.resonite.com/open/session/S-abc",
     );
+    expect(display.sessionSiteUrl).toBe(
+      "https://session.resonite.com/session/S-abc",
+    );
     expect(display.accentColor).toBe(0x2ecc71);
   });
 
