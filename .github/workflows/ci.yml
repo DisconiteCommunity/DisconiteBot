@@ -68,6 +68,8 @@ jobs:
   database:
     name: Prisma migrations
     runs-on: ubuntu-latest
+    env:
+      SHADOW_DATABASE_URL: mysql://root:root@127.0.0.1:3306/disconite_ci_shadow
     services:
       mariadb:
         image: mariadb:11.4
@@ -95,5 +97,16 @@ jobs:
       - name: Apply migrations
         run: npx prisma migrate deploy
 
+      - name: Create shadow database
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq default-mysql-client
+          mysql -h 127.0.0.1 -P 3306 -u root -proot \
+            -e "CREATE DATABASE IF NOT EXISTS disconite_ci_shadow;"
+
       - name: Verify schema matches migrations
-        run: npx prisma migrate diff --from-migrations prisma/migrations --to-config-datasource --exit-code
+        run: >-
+          npx prisma migrate diff
+          --from-migrations prisma/migrations
+          --to-config-datasource
+          --exit-code
