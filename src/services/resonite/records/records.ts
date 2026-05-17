@@ -1,5 +1,6 @@
 import { stripResoniteRichText } from "../../../utility/text/resoniteRichText.js";
 import { fetchResoniteJson } from "../api/api.js";
+import { buildOpenInResoniteUrl } from "./recordLinks.js";
 
 /** Map owner id to `/users/...` or `/groups/...` API prefix (unauthenticated). */
 export function ownerRecordsBasePath(ownerId: string): string {
@@ -27,8 +28,8 @@ export type ApiRecordSummary = {
   isPublic?: boolean;
   isListed?: boolean;
   imageUrl: string | null;
-  /** Public open link when we have a record id (not guaranteed for path-only refs). */
-  openWorldUrl: string | null;
+  /** Client open link (worlds, objects, folders, etc.) when we have a record id. */
+  openInResoniteUrl: string | null;
   extraLines: string[];
 };
 
@@ -69,9 +70,9 @@ export function summarizeRecordPayload(
     lines.push(`Visits: ${visits}`);
   }
 
-  const openWorldUrl =
+  const openInResoniteUrl =
     recordId && recordId.startsWith("R-")
-      ? `https://api.resonite.com/open/world/${encodeURIComponent(ownerId)}/${encodeURIComponent(recordId)}`
+      ? buildOpenInResoniteUrl(ownerId, recordId)
       : null;
 
   const ownerNameRaw = str(json.ownerName);
@@ -85,7 +86,7 @@ export function summarizeRecordPayload(
     isPublic: bool(json.isPublic),
     isListed: bool(json.isListed),
     imageUrl,
-    openWorldUrl,
+    openInResoniteUrl,
     extraLines: lines,
   };
 }
@@ -150,11 +151,24 @@ export function buildSessionJsonApiUrl(sessionId: string): string {
   return `https://api.resonite.com/sessions/${encodeURIComponent(withPrefix)}`;
 }
 
+function sessionIdWithPrefix(sessionId: string): string {
+  const id = sessionId.trim();
+  return /^S-/i.test(id) ? id : `S-${id}`;
+}
+
 /** Web session preview (title, host, join) — same session id as the public API. */
 export function buildGoResoniteSessionUrl(sessionId: string): string {
-  const id = sessionId.trim();
-  const withPrefix = /^S-/i.test(id) ? id : `S-${id}`;
-  return `https://go.resonite.com/session/${encodeURIComponent(withPrefix)}`;
+  return `https://go.resonite.com/session/${encodeURIComponent(sessionIdWithPrefix(sessionId))}`;
+}
+
+/** Client deeplink, e.g. `ressession:///S-019e288c-…` */
+export function buildRessessionSessionUrl(sessionId: string): string {
+  return `ressession:///${sessionIdWithPrefix(sessionId)}`;
+}
+
+/** HTTPS handler that opens a session in the Resonite client (Discord link buttons). */
+export function buildOpenResoniteSessionUrl(sessionId: string): string {
+  return `https://api.resonite.com/open/session/${encodeURIComponent(sessionIdWithPrefix(sessionId))}`;
 }
 
 export type SessionSummary = {

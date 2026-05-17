@@ -1,6 +1,6 @@
 /**
  * Minimal JSON fetch helper for https://api.resonite.com
- * Public open world URLs (HTTPS): https://api.resonite.com/open/world/{ownerId}/{recordId}
+ * Public record open URLs (HTTPS): https://api.resonite.com/open/world/{ownerId}/{recordId}
  * (see Resonite wiki — Custom protocol handler / API)
  */
 

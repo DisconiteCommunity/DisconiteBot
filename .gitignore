@@ -8,3 +8,6 @@ bun.lockb
 
 src/generated
 .vrchat_cookies/
+
+# Local upstream clones / reference (not part of the app)
+.upstream/

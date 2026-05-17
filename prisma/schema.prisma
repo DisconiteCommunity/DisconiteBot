@@ -6,3 +6,21 @@ generator client {
 datasource db {
   provider = "mysql"
 }
+
+/// Per-Discord-guild settings. One row per guild; extend with nullable columns or `extras` JSON instead of new tables per feature.
+model GuildSettings {
+  guildId String @id @map("guild_id") @db.VarChar(32)
+
+  /// When set, this channel receives live Resonite metrics (ported from Resonite Discord Sessions).
+  metricsChannelId     String? @map("metrics_channel_id") @db.VarChar(32)
+  metricsMessageId     String? @map("metrics_message_id") @db.VarChar(32)
+  metricsWorldPreviews Boolean @default(false) @map("metrics_world_previews")
+
+  /// Optional unstructured flags / nested prefs for future features (avoid one-off tables).
+  extras Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("guild_settings")
+}

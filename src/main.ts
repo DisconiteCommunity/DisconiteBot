@@ -14,6 +14,7 @@ import { ConfigError } from "./utility/errors/errors.js";
 import { ExceptionConstants } from "./config/constants.js";
 import { BOT_INTENTS, BOT_CONFIG } from "./config/discord.js";
 import { createApiRouter } from "./api/routes.js";
+import { startResoniteMetricsPoller } from "./services/resonite/metrics/resoniteMetricsPoller.js";
 
 let env;
 try {
@@ -66,6 +67,8 @@ bot.once("clientReady", async () => {
   } catch (error) {
     loggers.bot.error("Failed to initialize application commands", error);
   }
+
+  startResoniteMetricsPoller(bot, prisma);
 });
 
 bot.on("interactionCreate", async (interaction: Interaction) => {
