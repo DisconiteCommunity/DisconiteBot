@@ -28,8 +28,11 @@ import { parseRecordInput } from "../../services/resonite/records/recordLinks.js
 import {
   buildRecordInventoryJsonApiUrl,
   buildGoResoniteSessionUrl,
+  buildGoResoniteWorldUrl,
   buildRecordJsonApiUrl,
+  buildOpenResoniteSessionUrl,
   buildSessionJsonApiUrl,
+  buildSessionResoniteComUrl,
   fetchRecordById,
   fetchRecordByInventoryPath,
   fetchSession,
@@ -50,23 +53,28 @@ import {
   wikiOpenSearchForAutocomplete,
   wikitextToDiscordMarkdown,
 } from "../../services/resonite/wiki/wikiSearch.js";
+import {
+  WIKI_PAGE_PICK_MENU_ID,
+  WIKI_PAGE_PICK_STATE_PREFIX,
+} from "../../utility/discord/discordInteractionIds.js";
 
-const WIKI_PREVIEW_MIN = 500;
-const WIKI_PREVIEW_MAX = 1500;
-const WIKI_PICK_CUSTOM_ID = "wiki_page_pick";
-const WIKI_PICK_FOOTER_PREFIX = "dwp:";
+const WIKI_PREVIEW_CHARACTER_MIN = 500;
+const WIKI_PREVIEW_CHARACTER_MAX = 1500;
 
 function clampWikiPreviewLen(
   raw: number | null | undefined,
 ): number {
   if (raw === null || raw === undefined) {
-    return WIKI_PREVIEW_MIN;
+    return WIKI_PREVIEW_CHARACTER_MIN;
   }
-  const t = Math.trunc(Number(raw));
-  if (Number.isNaN(t)) {
-    return WIKI_PREVIEW_MIN;
+  const truncated = Math.trunc(Number(raw));
+  if (Number.isNaN(truncated)) {
+    return WIKI_PREVIEW_CHARACTER_MIN;
   }
-  return Math.min(WIKI_PREVIEW_MAX, Math.max(WIKI_PREVIEW_MIN, t));
+  return Math.min(
+    WIKI_PREVIEW_CHARACTER_MAX,
+    Math.max(WIKI_PREVIEW_CHARACTER_MIN, truncated),
+  );
 }
 
 type WikiPickState = {
@@ -77,38 +85,44 @@ type WikiPickState = {
 
 function encodeWikiPickFooter(state: WikiPickState): string {
   const slim: WikiPickState = {
-    titles: state.titles.slice(0, 10).map((t) => t.slice(0, 150)),
+    titles: state.titles.slice(0, 10).map((title) => title.slice(0, 150)),
     ephemeral: state.ephemeral,
     previewLimit: state.previewLimit,
   };
-  let b = Buffer.from(JSON.stringify(slim), "utf8").toString("base64url");
-  let out = `${WIKI_PICK_FOOTER_PREFIX}${b}`;
-  if (out.length > 2048) {
-    slim.titles = slim.titles.map((t) => t.slice(0, 60));
-    b = Buffer.from(JSON.stringify(slim), "utf8").toString("base64url");
-    out = `${WIKI_PICK_FOOTER_PREFIX}${b}`;
+  let encodedState = Buffer.from(JSON.stringify(slim), "utf8").toString(
+    "base64url",
+  );
+  let footerText = `${WIKI_PAGE_PICK_STATE_PREFIX}${encodedState}`;
+  if (footerText.length > 2048) {
+    slim.titles = slim.titles.map((title) => title.slice(0, 60));
+    encodedState = Buffer.from(JSON.stringify(slim), "utf8").toString(
+      "base64url",
+    );
+    footerText = `${WIKI_PAGE_PICK_STATE_PREFIX}${encodedState}`;
   }
-  return out;
+  return footerText;
 }
 
 function decodeWikiPickFooter(text: string | null | undefined): WikiPickState | null {
-  if (!text?.startsWith(WIKI_PICK_FOOTER_PREFIX)) {
+  if (!text?.startsWith(WIKI_PAGE_PICK_STATE_PREFIX)) {
     return null;
   }
   try {
     const json = Buffer.from(
-      text.slice(WIKI_PICK_FOOTER_PREFIX.length),
+      text.slice(WIKI_PAGE_PICK_STATE_PREFIX.length),
       "base64url",
     ).toString("utf8");
-    const o = JSON.parse(json) as WikiPickState;
-    if (!Array.isArray(o.titles)) {
+    const parsed = JSON.parse(json) as WikiPickState;
+    if (!Array.isArray(parsed.titles)) {
       return null;
     }
     return {
-      titles: o.titles,
-      ephemeral: Boolean(o.ephemeral),
+      titles: parsed.titles,
+      ephemeral: Boolean(parsed.ephemeral),
       previewLimit: clampWikiPreviewLen(
-        typeof o.previewLimit === "number" ? o.previewLimit : WIKI_PREVIEW_MIN,
+        typeof parsed.previewLimit === "number"
+          ? parsed.previewLimit
+          : WIKI_PREVIEW_CHARACTER_MIN,
       ),
     };
   } catch {
@@ -206,7 +220,7 @@ function buildWikiPickListMessage(
     .setFooter({ text: encodeWikiPickFooter(state) });
 
   const menu = new StringSelectMenuBuilder()
-    .setCustomId(WIKI_PICK_CUSTOM_ID)
+    .setCustomId(WIKI_PAGE_PICK_MENU_ID)
     .setPlaceholder("Select a page…")
     .setMinValues(1)
     .setMaxValues(1)
@@ -249,9 +263,9 @@ async function wikiQueryAutocomplete(
   interaction: AutocompleteInteraction,
 ): Promise<void> {
   const focused = interaction.options.getFocused(true);
-  const q = typeof focused.value === "string" ? focused.value : "";
+  const query = typeof focused.value === "string" ? focused.value : "";
   try {
-    const titles = await wikiOpenSearchForAutocomplete(q, 25);
+    const titles = await wikiOpenSearchForAutocomplete(query, 25);
     await interaction.respond(toDiscordStringAutocompleteChoices(titles));
   } catch {
     await interaction.respond([]);
@@ -262,9 +276,9 @@ async function accountUsernameAutocomplete(
   interaction: AutocompleteInteraction,
 ): Promise<void> {
   const focused = interaction.options.getFocused(true);
-  const q = typeof focused.value === "string" ? focused.value : "";
+  const query = typeof focused.value === "string" ? focused.value : "";
   try {
-    const names = await searchResoniteUsernamesAutocomplete(q, 25);
+    const names = await searchResoniteUsernamesAutocomplete(query, 25);
     await interaction.respond(toDiscordStringAutocompleteChoices(names));
   } catch {
     await interaction.respond([]);
@@ -307,18 +321,18 @@ export class ResoniteSearchCommands {
     })
     ephemeral: boolean | undefined,
     @SlashOption({
-      name: "preview_chars",
+      name: "preview_characters",
       description:
         "Max characters for wiki preview text (500–1500). Default 500.",
       type: ApplicationCommandOptionType.Integer,
       required: false,
-      minValue: WIKI_PREVIEW_MIN,
-      maxValue: WIKI_PREVIEW_MAX,
+      minValue: WIKI_PREVIEW_CHARACTER_MIN,
+      maxValue: WIKI_PREVIEW_CHARACTER_MAX,
     })
-    preview_chars: number | undefined,
+    previewCharacters: number | undefined,
     interaction: CommandInteraction,
   ): Promise<void> {
-    const previewLimit = clampWikiPreviewLen(preview_chars);
+    const previewLimit = clampWikiPreviewLen(previewCharacters);
     try {
       const exact = await fetchWikiPageWikitextIfExists(query);
       if (exact) {
@@ -374,14 +388,19 @@ export class ResoniteSearchCommands {
     }
   }
 
-  @SelectMenuComponent({ id: "wiki_page_pick" })
+  @SelectMenuComponent({ id: WIKI_PAGE_PICK_MENU_ID })
   async wikiPagePick(interaction: StringSelectMenuInteraction): Promise<void> {
     try {
       await interaction.deferUpdate();
       const footer = interaction.message.embeds[0]?.footer?.text;
-      const state = decodeWikiPickFooter(footer);
-      const idx = parseInt(interaction.values[0] ?? "", 10);
-      if (!state || Number.isNaN(idx) || idx < 0 || idx >= state.titles.length) {
+      const pickState = decodeWikiPickFooter(footer);
+      const selectedIndex = parseInt(interaction.values[0] ?? "", 10);
+      if (
+        !pickState ||
+        Number.isNaN(selectedIndex) ||
+        selectedIndex < 0 ||
+        selectedIndex >= pickState.titles.length
+      ) {
         await interaction.followUp({
           content:
             "That menu is out of date or invalid. Run `/resonite search wiki` again.",
@@ -389,7 +408,7 @@ export class ResoniteSearchCommands {
         });
         return;
       }
-      const title = state.titles[idx];
+      const title = pickState.titles[selectedIndex];
       if (title === undefined) {
         await interaction.followUp({
           content:
@@ -402,7 +421,7 @@ export class ResoniteSearchCommands {
       if (!page) {
         await interaction.followUp({
           content: `Could not load **${truncateEllipsis(title, 200)}** from the wiki.`,
-          ephemeral: state.ephemeral,
+          ephemeral: pickState.ephemeral,
         });
         return;
       }
@@ -410,7 +429,7 @@ export class ResoniteSearchCommands {
       const embed = buildWikiPreviewEmbed(
         page.title,
         page.wikitext,
-        state.previewLimit,
+        pickState.previewLimit,
         imageUrl,
       );
       const linkRow = linkButtonRow([
@@ -518,7 +537,7 @@ export class ResoniteSearchCommands {
   @Slash({
     name: "record",
     description:
-      "Resolve record/world/session links: resrec, ressession, go.resonite, api /open/, Resonite:?world=",
+      "Resolve record and session links: resrec, ressession, go.resonite, api /open/, Resonite:?world=",
   })
   async record(
     @SlashOption({
@@ -545,15 +564,19 @@ export class ResoniteSearchCommands {
           sum.lines.length ? sum.lines.join("\n") : "No extra session fields.",
           4096,
         );
-        const openSession = `https://api.resonite.com/open/session/${encodeURIComponent(sum.sessionId)}`;
+        const openSession = buildOpenResoniteSessionUrl(sum.sessionId);
         const embed = new EmbedBuilder()
           .setTitle(sum.title)
           .setDescription(desc)
           .setFooter({ text: `${sum.sessionId} · ${openSession}` });
         const row = linkButtonRow([
           { label: "Session (API)", url: buildSessionJsonApiUrl(sum.sessionId) },
-          { label: "Open in Resonite", url: openSession },
+          { label: "Join session", url: openSession },
           { label: "Web preview", url: buildGoResoniteSessionUrl(sum.sessionId) },
+          {
+            label: "View Session",
+            url: buildSessionResoniteComUrl(sum.sessionId),
+          },
         ]);
         await interaction.reply({
           embeds: [embed],
@@ -594,8 +617,8 @@ export class ResoniteSearchCommands {
       for (const line of summary.extraLines) {
         parts.push(line);
       }
-      if (summary.openWorldUrl) {
-        parts.push(`Open: ${summary.openWorldUrl}`);
+      if (summary.openInResoniteUrl) {
+        parts.push(`${summary.openInResoniteLabel}: ${summary.openInResoniteUrl}`);
       }
 
       const embed = new EmbedBuilder()
@@ -630,8 +653,20 @@ export class ResoniteSearchCommands {
                 ),
               },
             ];
-      if (summary.openWorldUrl) {
-        apiLinks.push({ label: "Open world", url: summary.openWorldUrl });
+      if (summary.openInResoniteUrl) {
+        apiLinks.push({
+          label: summary.openInResoniteLabel,
+          url: summary.openInResoniteUrl,
+        });
+      }
+      if (
+        summary.recordType?.toLowerCase() === "world" &&
+        summary.recordId.startsWith("R-")
+      ) {
+        apiLinks.push({
+          label: "Web preview",
+          url: buildGoResoniteWorldUrl(summary.ownerId, summary.recordId),
+        });
       }
       if (summary.imageUrl) {
         apiLinks.push({

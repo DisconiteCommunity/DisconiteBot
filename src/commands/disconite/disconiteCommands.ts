@@ -46,11 +46,12 @@ import {
   searchForumPosts,
   type ForumPostHit,
 } from "../../services/disconite/discourse/searchPosts.js";
-
-const TRANSLATE_KEY_PICK_ID = "weblate_key_pick";
-const FORUM_POST_PICK_ID = "forum_post_pick";
-const TRANSLATE_PICK_FOOTER_PREFIX = "wtk:";
-const FORUM_PICK_FOOTER_PREFIX = "fmp:";
+import {
+  FORUM_POST_PICK_MENU_ID,
+  FORUM_POST_PICK_STATE_PREFIX,
+  WEBLATE_KEY_PICK_MENU_ID,
+  WEBLATE_KEY_PICK_STATE_PREFIX,
+} from "../../utility/discord/discordInteractionIds.js";
 
 type TranslatePickState = {
   contexts: string[];
@@ -76,38 +77,42 @@ function encodeTranslatePickFooter(state: TranslatePickState): string {
     languages: state.languages,
     ephemeral: state.ephemeral,
   };
-  let b = Buffer.from(JSON.stringify(slim), "utf8").toString("base64url");
-  let out = `${TRANSLATE_PICK_FOOTER_PREFIX}${b}`;
-  if (out.length > 2048) {
-    slim.contexts = slim.contexts.map((c) => c.slice(0, 40));
-    b = Buffer.from(JSON.stringify(slim), "utf8").toString("base64url");
-    out = `${TRANSLATE_PICK_FOOTER_PREFIX}${b}`;
+  let encodedState = Buffer.from(JSON.stringify(slim), "utf8").toString(
+    "base64url",
+  );
+  let footerText = `${WEBLATE_KEY_PICK_STATE_PREFIX}${encodedState}`;
+  if (footerText.length > 2048) {
+    slim.contexts = slim.contexts.map((context) => context.slice(0, 40));
+    encodedState = Buffer.from(JSON.stringify(slim), "utf8").toString(
+      "base64url",
+    );
+    footerText = `${WEBLATE_KEY_PICK_STATE_PREFIX}${encodedState}`;
   }
-  return out;
+  return footerText;
 }
 
 function decodeTranslatePickFooter(
   text: string | null | undefined,
 ): TranslatePickState | null {
-  if (!text?.startsWith(TRANSLATE_PICK_FOOTER_PREFIX)) {
+  if (!text?.startsWith(WEBLATE_KEY_PICK_STATE_PREFIX)) {
     return null;
   }
   try {
     const json = Buffer.from(
-      text.slice(TRANSLATE_PICK_FOOTER_PREFIX.length),
+      text.slice(WEBLATE_KEY_PICK_STATE_PREFIX.length),
       "base64url",
     ).toString("utf8");
-    const o = JSON.parse(json) as TranslatePickState;
-    if (!Array.isArray(o.contexts)) {
+    const parsed = JSON.parse(json) as TranslatePickState;
+    if (!Array.isArray(parsed.contexts)) {
       return null;
     }
     return {
-      contexts: o.contexts,
-      languages: Array.isArray(o.languages) ? o.languages : null,
-      ephemeral: Boolean(o.ephemeral),
+      contexts: parsed.contexts,
+      languages: Array.isArray(parsed.languages) ? parsed.languages : null,
+      ephemeral: Boolean(parsed.ephemeral),
       rawQuery:
-        typeof o.rawQuery === "string" && o.rawQuery.length > 0
-          ? o.rawQuery
+        typeof parsed.rawQuery === "string" && parsed.rawQuery.length > 0
+          ? parsed.rawQuery
           : undefined,
     };
   } catch {
@@ -120,25 +125,25 @@ function encodeForumPickFooter(state: ForumPickState): string {
     query: state.query.slice(0, 200),
     ephemeral: state.ephemeral,
   };
-  return `${FORUM_PICK_FOOTER_PREFIX}${Buffer.from(JSON.stringify(slim), "utf8").toString("base64url")}`;
+  return `${FORUM_POST_PICK_STATE_PREFIX}${Buffer.from(JSON.stringify(slim), "utf8").toString("base64url")}`;
 }
 
 function decodeForumPickFooter(
   text: string | null | undefined,
 ): ForumPickState | null {
-  if (!text?.startsWith(FORUM_PICK_FOOTER_PREFIX)) {
+  if (!text?.startsWith(FORUM_POST_PICK_STATE_PREFIX)) {
     return null;
   }
   try {
     const json = Buffer.from(
-      text.slice(FORUM_PICK_FOOTER_PREFIX.length),
+      text.slice(FORUM_POST_PICK_STATE_PREFIX.length),
       "base64url",
     ).toString("utf8");
-    const o = JSON.parse(json) as ForumPickState;
-    if (typeof o.query !== "string") {
+    const parsed = JSON.parse(json) as ForumPickState;
+    if (typeof parsed.query !== "string") {
       return null;
     }
-    return { query: o.query, ephemeral: Boolean(o.ephemeral) };
+    return { query: parsed.query, ephemeral: Boolean(parsed.ephemeral) };
   } catch {
     return null;
   }
@@ -201,7 +206,7 @@ function buildTranslateKeyPickMessage(
     .setFooter({ text: encodeTranslatePickFooter(state) });
 
   const menu = new StringSelectMenuBuilder()
-    .setCustomId(TRANSLATE_KEY_PICK_ID)
+    .setCustomId(WEBLATE_KEY_PICK_MENU_ID)
     .setPlaceholder("Select a key…")
     .setMinValues(1)
     .setMaxValues(1)
@@ -263,7 +268,7 @@ function buildForumPostPickMessage(
     .setFooter({ text: encodeForumPickFooter(state) });
 
   const menu = new StringSelectMenuBuilder()
-    .setCustomId(FORUM_POST_PICK_ID)
+    .setCustomId(FORUM_POST_PICK_MENU_ID)
     .setPlaceholder("Select a post…")
     .setMinValues(1)
     .setMaxValues(1)
@@ -286,9 +291,9 @@ async function translateKeyAutocomplete(
   interaction: AutocompleteInteraction,
 ): Promise<void> {
   const focused = interaction.options.getFocused(true);
-  const q = typeof focused.value === "string" ? focused.value : "";
+  const query = typeof focused.value === "string" ? focused.value : "";
   try {
-    const keys = await weblateKeyAutocomplete(q);
+    const keys = await weblateKeyAutocomplete(query);
     await interaction.respond(toDiscordStringAutocompleteChoices(keys));
   } catch {
     await interaction.respond([]);
@@ -299,9 +304,9 @@ async function translateLanguagesAutocomplete(
   interaction: AutocompleteInteraction,
 ): Promise<void> {
   const focused = interaction.options.getFocused(true);
-  const q = typeof focused.value === "string" ? focused.value : "";
+  const query = typeof focused.value === "string" ? focused.value : "";
   try {
-    const choices = await weblateLanguagesAutocomplete(q);
+    const choices = await weblateLanguagesAutocomplete(query);
     await interaction.respond(choices);
   } catch {
     await interaction.respond([]);
@@ -312,9 +317,9 @@ async function forumQueryAutocompleteHandler(
   interaction: AutocompleteInteraction,
 ): Promise<void> {
   const focused = interaction.options.getFocused(true);
-  const q = typeof focused.value === "string" ? focused.value : "";
+  const query = typeof focused.value === "string" ? focused.value : "";
   try {
-    const choices = await forumQueryAutocomplete(q);
+    const choices = await forumQueryAutocomplete(query);
     await interaction.respond(choices);
   } catch {
     await interaction.respond([]);
@@ -408,7 +413,7 @@ export class DisconiteCommands {
     }
   }
 
-  @SelectMenuComponent({ id: TRANSLATE_KEY_PICK_ID })
+  @SelectMenuComponent({ id: WEBLATE_KEY_PICK_MENU_ID })
   async translateKeyPick(
     interaction: StringSelectMenuInteraction,
   ): Promise<void> {
@@ -533,7 +538,7 @@ export class DisconiteCommands {
     }
   }
 
-  @SelectMenuComponent({ id: FORUM_POST_PICK_ID })
+  @SelectMenuComponent({ id: FORUM_POST_PICK_MENU_ID })
   async forumPostPick(
     interaction: StringSelectMenuInteraction,
   ): Promise<void> {

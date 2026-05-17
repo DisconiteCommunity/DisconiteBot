@@ -1,5 +1,9 @@
 import { stripResoniteRichText } from "../../../utility/text/resoniteRichText.js";
 import { fetchResoniteJson } from "../api/api.js";
+import {
+  buildOpenInResoniteUrl,
+  openInResoniteRecordButtonLabel,
+} from "./recordLinks.js";
 
 /** Map owner id to `/users/...` or `/groups/...` API prefix (unauthenticated). */
 export function ownerRecordsBasePath(ownerId: string): string {
@@ -27,8 +31,10 @@ export type ApiRecordSummary = {
   isPublic?: boolean;
   isListed?: boolean;
   imageUrl: string | null;
-  /** Public open link when we have a record id (not guaranteed for path-only refs). */
-  openWorldUrl: string | null;
+  /** `https://api.resonite.com/open/world/…` when we have a record id. */
+  openInResoniteUrl: string | null;
+  /** Label for {@link openInResoniteUrl} (world / spawn / folder). */
+  openInResoniteLabel: string;
   extraLines: string[];
 };
 
@@ -69,23 +75,27 @@ export function summarizeRecordPayload(
     lines.push(`Visits: ${visits}`);
   }
 
-  const openWorldUrl =
+  const recordTypeRaw = str(json.recordType);
+  const recordType = recordTypeRaw
+    ? stripResoniteRichText(recordTypeRaw)
+    : undefined;
+  const openInResoniteUrl =
     recordId && recordId.startsWith("R-")
-      ? `https://api.resonite.com/open/world/${encodeURIComponent(ownerId)}/${encodeURIComponent(recordId)}`
+      ? buildOpenInResoniteUrl(ownerId, recordId)
       : null;
 
   const ownerNameRaw = str(json.ownerName);
-  const recordTypeRaw = str(json.recordType);
   return {
     title: name,
     recordId,
     ownerId,
     ownerName: ownerNameRaw ? stripResoniteRichText(ownerNameRaw) : undefined,
-    recordType: recordTypeRaw ? stripResoniteRichText(recordTypeRaw) : undefined,
+    recordType,
     isPublic: bool(json.isPublic),
     isListed: bool(json.isListed),
     imageUrl,
-    openWorldUrl,
+    openInResoniteUrl,
+    openInResoniteLabel: openInResoniteRecordButtonLabel(recordType),
     extraLines: lines,
   };
 }
@@ -150,11 +160,34 @@ export function buildSessionJsonApiUrl(sessionId: string): string {
   return `https://api.resonite.com/sessions/${encodeURIComponent(withPrefix)}`;
 }
 
+function sessionIdWithPrefix(sessionId: string): string {
+  const id = sessionId.trim();
+  return /^S-/i.test(id) ? id : `S-${id}`;
+}
+
 /** Web session preview (title, host, join) — same session id as the public API. */
 export function buildGoResoniteSessionUrl(sessionId: string): string {
-  const id = sessionId.trim();
-  const withPrefix = /^S-/i.test(id) ? id : `S-${id}`;
-  return `https://go.resonite.com/session/${encodeURIComponent(withPrefix)}`;
+  return `https://go.resonite.com/session/${encodeURIComponent(sessionIdWithPrefix(sessionId))}`;
+}
+
+/** Web world preview — same owner/record id as the public API. */
+export function buildGoResoniteWorldUrl(ownerId: string, recordId: string): string {
+  return `https://go.resonite.com/world/${encodeURIComponent(ownerId)}/${encodeURIComponent(recordId)}`;
+}
+
+/** Web session page (join in browser; same session id as the public API). */
+export function buildSessionResoniteComUrl(sessionId: string): string {
+  return `https://session.resonite.com/session/${encodeURIComponent(sessionIdWithPrefix(sessionId))}`;
+}
+
+/** Client deeplink, e.g. `ressession:///S-019e288c-…` */
+export function buildRessessionSessionUrl(sessionId: string): string {
+  return `ressession:///${sessionIdWithPrefix(sessionId)}`;
+}
+
+/** HTTPS handler that joins a session (`GET /open/session/…` → `resonite:?session=…`). */
+export function buildOpenResoniteSessionUrl(sessionId: string): string {
+  return `https://api.resonite.com/open/session/${encodeURIComponent(sessionIdWithPrefix(sessionId))}`;
 }
 
 export type SessionSummary = {

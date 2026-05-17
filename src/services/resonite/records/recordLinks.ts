@@ -1,14 +1,15 @@
 /**
- * Parse pasted Resonite record / world / session links into structured refs.
+ * Parse pasted Resonite record and session links into structured refs.
+ * Records may be worlds, objects, folders, spawnables, etc.
  * Supports resrec://, ressession:///, resonite-session://, api.resonite.com/open/*,
  * go.resonite.com/session/*, Resonite:?world=..., and free text that contains
  * recognizable patterns (e.g. wiki pages with URLs).
  */
 
-const R_RECORD_ID =
+const RESONITE_RECORD_ID_PATTERN =
   /^R-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i;
 
-const OWNER_PREFIX = /^(U-|G-)/i;
+const RESONITE_OWNER_ID_PREFIX_PATTERN = /^(U-|G-)/i;
 
 export type ParsedRecordInput =
   | { kind: "record"; ownerId: string; recordId: string }
@@ -19,137 +20,140 @@ export type ParseRecordFailure = { ok: false; reason: string };
 export type ParseRecordSuccess = { ok: true; value: ParsedRecordInput };
 export type ParseRecordResult = ParseRecordSuccess | ParseRecordFailure;
 
-function decodeRepeatedly(input: string, rounds = 5): string {
-  let current = input;
-  for (let i = 0; i < rounds; i++) {
+function decodeRepeatedly(input: string, maxRounds = 5): string {
+  let decoded = input;
+  for (let round = 0; round < maxRounds; round++) {
     try {
-      const next = decodeURIComponent(current);
-      if (next === current) {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) {
         break;
       }
-      current = next;
+      decoded = next;
     } catch {
       break;
     }
   }
-  return current;
+  return decoded;
 }
 
-function normalizeSessionId(raw: string): string {
-  const s = raw.trim();
-  if (/^S-/i.test(s)) {
-    return s;
+function normalizeSessionId(rawSessionId: string): string {
+  const trimmed = rawSessionId.trim();
+  if (/^S-/i.test(trimmed)) {
+    return trimmed;
   }
   if (
     /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
-      s,
+      trimmed,
     )
   ) {
-    return `S-${s}`;
+    return `S-${trimmed}`;
   }
-  return s;
+  return trimmed;
 }
 
-function extractResoniteWorldParam(s: string): string | null {
-  const m = s.match(/^[Rr]esonite:\?(.*)$/s);
-  if (!m?.[1]) {
+function extractResoniteWorldParam(input: string): string | null {
+  const match = input.match(/^[Rr]esonite:\?(.*)$/s);
+  if (!match?.[1]) {
     return null;
   }
-  const params = new URLSearchParams(m[1]);
+  const params = new URLSearchParams(match[1]);
   return params.get("world");
 }
 
-function extractFromOpenWorld(haystack: string): ParsedRecordInput | null {
-  const re =
+/** api.resonite.com/open/world/{owner}/{recordId} — opens any record type in the client */
+function extractFromOpenRecordUrl(haystack: string): ParsedRecordInput | null {
+  const pattern =
     /https?:\/\/api\.resonite\.com\/open\/world\/([^/\s?#]+)\/(R-[0-9a-fA-F-]+)/i;
-  const m = haystack.match(re);
-  if (m?.[1] && m[2]) {
-    return { kind: "record", ownerId: m[1], recordId: m[2] };
+  const match = haystack.match(pattern);
+  if (match?.[1] && match[2]) {
+    return { kind: "record", ownerId: match[1], recordId: match[2] };
   }
   return null;
 }
 
-function extractFromOpenSession(haystack: string): ParsedRecordInput | null {
-  const re =
+function extractFromOpenSessionUrl(haystack: string): ParsedRecordInput | null {
+  const pattern =
     /https?:\/\/api\.resonite\.com\/open\/session\/([^?\s#]+)/i;
-  const m = haystack.match(re);
-  if (m?.[1]) {
-    return { kind: "session", sessionId: normalizeSessionId(m[1]) };
+  const match = haystack.match(pattern);
+  if (match?.[1]) {
+    return { kind: "session", sessionId: normalizeSessionId(match[1]) };
   }
   return null;
 }
 
 /** Public session preview page (same id as API /sessions/{id}). */
 function extractFromGoResoniteSession(haystack: string): ParsedRecordInput | null {
-  const re = /https?:\/\/go\.resonite\.com\/session\/([^?\s#"'<>]+)/i;
-  const m = haystack.match(re);
-  if (m?.[1]) {
-    return { kind: "session", sessionId: normalizeSessionId(m[1]) };
+  const pattern = /https?:\/\/go\.resonite\.com\/session\/([^?\s#"'<>]+)/i;
+  const match = haystack.match(pattern);
+  if (match?.[1]) {
+    return { kind: "session", sessionId: normalizeSessionId(match[1]) };
   }
   return null;
 }
 
 function extractResoniteSessionProtocol(haystack: string): ParsedRecordInput | null {
-  const re = /resonite-session:\/\/([^?\s#"'<>]+)/i;
-  const m = haystack.match(re);
-  if (m?.[1]) {
-    return { kind: "session", sessionId: normalizeSessionId(m[1]) };
+  const pattern = /resonite-session:\/\/([^?\s#"'<>]+)/i;
+  const match = haystack.match(pattern);
+  if (match?.[1]) {
+    return { kind: "session", sessionId: normalizeSessionId(match[1]) };
   }
   return null;
 }
 
-const R_SESSION_SEGMENT =
+const SESSION_ID_SEGMENT_PATTERN =
   /^(?:S-)?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i;
 
-function parseRessessionPayload(inner: string): ParsedRecordInput | null {
-  const trimmed = inner.replace(/^\/+/, "").replace(/\/+$/, "");
+function parseRessessionPayload(innerPayload: string): ParsedRecordInput | null {
+  const trimmed = innerPayload.replace(/^\/+/, "").replace(/\/+$/, "");
   if (!trimmed) {
     return null;
   }
-  const head = trimmed.split(/[/\s]+/).filter(Boolean)[0] ?? "";
-  if (!R_SESSION_SEGMENT.test(head)) {
+  const firstSegment = trimmed.split(/[/\s]+/).filter(Boolean)[0] ?? "";
+  if (!SESSION_ID_SEGMENT_PATTERN.test(firstSegment)) {
     return null;
   }
-  return { kind: "session", sessionId: normalizeSessionId(head) };
+  return { kind: "session", sessionId: normalizeSessionId(firstSegment) };
 }
 
 /** Client session URL, e.g. ressession:///S-019e288c-f2bc-7e7e-ab9e-6d0b7b1ad8db */
 function extractRessession(haystack: string): ParsedRecordInput | null {
-  const lower = haystack.toLowerCase();
-  const needle = "ressession://";
-  let from = 0;
-  while (from < lower.length) {
-    const idx = lower.indexOf(needle, from);
-    if (idx === -1) {
+  const lowerHaystack = haystack.toLowerCase();
+  const protocolNeedle = "ressession://";
+  let searchFromIndex = 0;
+  while (searchFromIndex < lowerHaystack.length) {
+    const foundIndex = lowerHaystack.indexOf(protocolNeedle, searchFromIndex);
+    if (foundIndex === -1) {
       return null;
     }
-    let i = idx + needle.length;
-    while (i < haystack.length && haystack[i] === "/") {
-      i++;
+    let payloadStart = foundIndex + protocolNeedle.length;
+    while (payloadStart < haystack.length && haystack[payloadStart] === "/") {
+      payloadStart++;
     }
-    let j = i;
-    while (j < haystack.length) {
-      const c = haystack[j] ?? "";
+    let payloadEnd = payloadStart;
+    while (payloadEnd < haystack.length) {
+      const character = haystack[payloadEnd] ?? "";
       if (
-        c === " " ||
-        c === "\t" ||
-        c === "\n" ||
-        c === "\r" ||
-        c === '"' ||
-        c === "'" ||
-        c === "<" ||
-        c === ">" ||
-        c === "?"
+        character === " " ||
+        character === "\t" ||
+        character === "\n" ||
+        character === "\r" ||
+        character === '"' ||
+        character === "'" ||
+        character === "<" ||
+        character === ">" ||
+        character === "?"
       ) {
         break;
       }
-      j++;
+      payloadEnd++;
     }
-    const parsed = parseRessessionPayload(haystack.slice(i, j));
+    const parsed = parseRessessionPayload(
+      haystack.slice(payloadStart, payloadEnd),
+    );
     if (parsed) {
       return parsed;
     }
-    from = idx + 1;
+    searchFromIndex = foundIndex + 1;
   }
   return null;
 }
@@ -165,55 +169,64 @@ function parseResRecPayload(payload: string): ParsedRecordInput | null {
   if (!trimmed) {
     return null;
   }
-  const slash = trimmed.indexOf("/");
-  if (slash === -1) {
+  const slashIndex = trimmed.indexOf("/");
+  if (slashIndex === -1) {
     return null;
   }
-  const ownerId = trimmed.slice(0, slash);
-  const rest = trimmed.slice(slash + 1);
-  if (!OWNER_PREFIX.test(ownerId)) {
+  const ownerId = trimmed.slice(0, slashIndex);
+  const pathAfterOwner = trimmed.slice(slashIndex + 1);
+  if (!RESONITE_OWNER_ID_PREFIX_PATTERN.test(ownerId)) {
     return null;
   }
-  const segments = rest.split("/").filter(Boolean);
+  const segments = pathAfterOwner.split("/").filter(Boolean);
   if (segments.length === 0) {
     return null;
   }
-  const last = segments[segments.length - 1] ?? "";
-  if (segments.length === 1 && R_RECORD_ID.test(last)) {
-    return { kind: "record", ownerId, recordId: last };
+  const lastSegment = segments[segments.length - 1] ?? "";
+  if (segments.length === 1 && RESONITE_RECORD_ID_PATTERN.test(lastSegment)) {
+    return { kind: "record", ownerId, recordId: lastSegment };
   }
-  if (R_RECORD_ID.test(last)) {
-    return { kind: "record", ownerId, recordId: last };
+  if (RESONITE_RECORD_ID_PATTERN.test(lastSegment)) {
+    return { kind: "record", ownerId, recordId: lastSegment };
   }
   return { kind: "path", ownerId, path: segments.join("/") };
 }
 
 function extractResRec(haystack: string): ParsedRecordInput | null {
-  const lower = haystack.toLowerCase();
-  let from = 0;
-  while (from < lower.length) {
-    const idx = lower.indexOf("resrec://", from);
-    if (idx === -1) {
+  const lowerHaystack = haystack.toLowerCase();
+  let searchFromIndex = 0;
+  while (searchFromIndex < lowerHaystack.length) {
+    const foundIndex = lowerHaystack.indexOf("resrec://", searchFromIndex);
+    if (foundIndex === -1) {
       return null;
     }
-    let i = idx + "resrec://".length;
-    while (i < haystack.length && haystack[i] === "/") {
-      i++;
+    let payloadStart = foundIndex + "resrec://".length;
+    while (payloadStart < haystack.length && haystack[payloadStart] === "/") {
+      payloadStart++;
     }
-    let j = i;
-    while (j < haystack.length) {
-      const c = haystack[j] ?? "";
-      if (c === " " || c === "\t" || c === "\n" || c === "\r" || c === '"' || c === "'" || c === "<" || c === ">") {
+    let payloadEnd = payloadStart;
+    while (payloadEnd < haystack.length) {
+      const character = haystack[payloadEnd] ?? "";
+      if (
+        character === " " ||
+        character === "\t" ||
+        character === "\n" ||
+        character === "\r" ||
+        character === '"' ||
+        character === "'" ||
+        character === "<" ||
+        character === ">"
+      ) {
         break;
       }
-      j++;
+      payloadEnd++;
     }
-    const inner = haystack.slice(i, j);
-    const parsed = parseResRecPayload(inner);
+    const innerPayload = haystack.slice(payloadStart, payloadEnd);
+    const parsed = parseResRecPayload(innerPayload);
     if (parsed) {
       return parsed;
     }
-    from = idx + 1;
+    searchFromIndex = foundIndex + 1;
   }
   return null;
 }
@@ -224,47 +237,52 @@ function extractResRec(haystack: string): ParsedRecordInput | null {
 export function parseRecordInput(raw: string): ParseRecordResult {
   const trimmed = raw.trim();
   if (!trimmed) {
-    return { ok: false, reason: "Paste a record/session URL, resrec://, ressession:///, or open link." };
+    return {
+      ok: false,
+      reason:
+        "Paste a record/session URL, resrec://, ressession:///, or open link.",
+    };
   }
 
-  let s = decodeRepeatedly(trimmed);
+  let decodedInput = decodeRepeatedly(trimmed);
 
-  const world = extractResoniteWorldParam(s);
-  if (world) {
-    s = decodeRepeatedly(world.trim());
+  const resoniteWorldParam = extractResoniteWorldParam(decodedInput);
+  if (resoniteWorldParam) {
+    decodedInput = decodeRepeatedly(resoniteWorldParam.trim());
   }
 
-  const sessionProto = extractSessionFromProtocols(s);
-  if (sessionProto) {
-    return { ok: true, value: sessionProto };
+  const sessionFromProtocol = extractSessionFromProtocols(decodedInput);
+  if (sessionFromProtocol) {
+    return { ok: true, value: sessionFromProtocol };
   }
 
-  const openWorld = extractFromOpenWorld(s);
-  if (openWorld) {
-    return { ok: true, value: openWorld };
+  const openRecordLink = extractFromOpenRecordUrl(decodedInput);
+  if (openRecordLink) {
+    return { ok: true, value: openRecordLink };
   }
 
-  const openSession =
-    extractFromOpenSession(s) ?? extractFromGoResoniteSession(s);
-  if (openSession) {
-    return { ok: true, value: openSession };
+  const openSessionLink =
+    extractFromOpenSessionUrl(decodedInput) ??
+    extractFromGoResoniteSession(decodedInput);
+  if (openSessionLink) {
+    return { ok: true, value: openSessionLink };
   }
 
-  const resrec = extractResRec(s);
-  if (resrec) {
-    return { ok: true, value: resrec };
+  const resrecLink = extractResRec(decodedInput);
+  if (resrecLink) {
+    return { ok: true, value: resrecLink };
   }
 
   const fallbackHaystack = decodeRepeatedly(trimmed);
-  const fromWiki =
-    extractFromOpenWorld(fallbackHaystack) ??
-    extractFromOpenSession(fallbackHaystack) ??
+  const parsedFromSurroundingText =
+    extractFromOpenRecordUrl(fallbackHaystack) ??
+    extractFromOpenSessionUrl(fallbackHaystack) ??
     extractFromGoResoniteSession(fallbackHaystack) ??
     extractSessionFromProtocols(fallbackHaystack) ??
     extractResRec(fallbackHaystack);
 
-  if (fromWiki) {
-    return { ok: true, value: fromWiki };
+  if (parsedFromSurroundingText) {
+    return { ok: true, value: parsedFromSurroundingText };
   }
 
   return {
@@ -274,7 +292,30 @@ export function parseRecordInput(raw: string): ParseRecordResult {
   };
 }
 
-/** HTTPS link that opens the world in the Resonite client (redirect junction). */
-export function buildOpenWorldUrl(ownerId: string, recordId: string): string {
+/**
+ * HTTPS handler that opens a cloud record in Resonite (`GET /open/world/…` →
+ * `resonite:?world=resrec:///…`). Same path for worlds, inventory objects,
+ * folders, and other record types; the client decides load vs spawn.
+ */
+export function buildOpenInResoniteUrl(
+  ownerId: string,
+  recordId: string,
+): string {
   return `https://api.resonite.com/open/world/${encodeURIComponent(ownerId)}/${encodeURIComponent(recordId)}`;
 }
+
+/** Discord link-button label for {@link buildOpenInResoniteUrl} from API `recordType`. */
+export function openInResoniteRecordButtonLabel(recordType?: string): string {
+  switch ((recordType ?? "").trim().toLowerCase()) {
+    case "world":
+      return "Open world";
+    case "object":
+      return "Spawn item";
+    case "directory":
+    case "link":
+      return "Open folder";
+    default:
+      return "Open in Resonite";
+  }
+}
+

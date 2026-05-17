@@ -1,7 +1,7 @@
 /**
  * Minimal JSON fetch helper for https://api.resonite.com
- * Public open world URLs (HTTPS): https://api.resonite.com/open/world/{ownerId}/{recordId}
- * (see Resonite wiki — Custom protocol handler / API)
+ * Public open handlers (HTTPS GET, 302 to resonite:): `/open/world/{owner}/{recordId}`
+ * for records (worlds, objects, folders, …) and `/open/session/{sessionId}` for sessions.
  */
 
 const API_BASE = "https://api.resonite.com";

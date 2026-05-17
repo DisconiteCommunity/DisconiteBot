@@ -34,11 +34,12 @@ fi
 
 Equivalent **`package.json`** scripts: **`start:prod`** → `node build/main.js`, **`start:ts-node`** → `ts-node --esm src/main.ts`. A **`ts-node`** config block (`esm`, `experimentalSpecifierResolution`, `transpileOnly`) supports ESM + decorators.
 
-On Windows, the `start` script uses a Unix-style `ENV=` prefix; use Git Bash/WSL, set `ENV` yourself, or see **AI-AGENTS.md** for details.
+On Windows, the `start` script uses a Unix-style `ENV=` prefix; use Git Bash/WSL, set `ENV` yourself, or see **[docs/agents/ENVIRONMENT.md](./docs/agents/ENVIRONMENT.md)**.
 
 ## Docs
 
-- **[AI-AGENTS.md](./AI-AGENTS.md)** — Architecture, folders, env vars, and how to extend commands, events, and APIs.
+- **[AGENTS.md](./AGENTS.md)** — Minimal entry for AI coding agents (build commands, links to detailed guides).
+- **[docs/agents/](./docs/agents/)** — Architecture, extending commands/events/APIs, environment, Disconite/Resonite command reference, Discord setup.
 
 ## License
 

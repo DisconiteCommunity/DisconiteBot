@@ -23,8 +23,10 @@ import {
 import { truncateEllipsis } from "../../utility/text/truncate.js";
 import { fetchPlatformPreview } from "../../services/resonite/team/platformPreview.js";
 import {
-  SOCIAL_BACK_BUTTON_ID,
-  SOCIAL_PREVIEW_BUTTON_ID,
+  SOCIALS_BACK_BUTTON_ID_PATTERN,
+  SOCIALS_PREVIEW_BUTTON_ID_PATTERN,
+} from "../../utility/discord/discordInteractionIds.js";
+import {
   parseSocialBackButtonId,
   parseSocialPreviewButtonId,
 } from "../../services/resonite/team/platformPreviewIds.js";
@@ -42,17 +44,17 @@ async function socialsAutocomplete(
   interaction: AutocompleteInteraction,
 ): Promise<void> {
   const focused = interaction.options.getFocused(true);
-  const q = typeof focused.value === "string" ? focused.value : "";
+  const query = typeof focused.value === "string" ? focused.value : "";
 
   try {
     if (focused.name === "user") {
-      await interaction.respond(teamMemberAutocomplete(q));
+      await interaction.respond(teamMemberAutocomplete(query));
       return;
     }
 
     if (focused.name === "platform") {
       const userVal = interaction.options.getString("user");
-      await interaction.respond(platformAutocompleteForUser(userVal, q));
+      await interaction.respond(platformAutocompleteForUser(userVal, query));
       return;
     }
 
@@ -234,7 +236,7 @@ export class ResoniteSocialsCommands {
     }
   }
 
-  @ButtonComponent({ id: SOCIAL_PREVIEW_BUTTON_ID })
+  @ButtonComponent({ id: SOCIALS_PREVIEW_BUTTON_ID_PATTERN })
   async socialPreviewButton(interaction: ButtonInteraction): Promise<void> {
     const parsed = parseSocialPreviewButtonId(interaction.customId);
     if (!parsed) {
@@ -285,7 +287,7 @@ export class ResoniteSocialsCommands {
     }
   }
 
-  @ButtonComponent({ id: SOCIAL_BACK_BUTTON_ID })
+  @ButtonComponent({ id: SOCIALS_BACK_BUTTON_ID_PATTERN })
   async socialBackButton(interaction: ButtonInteraction): Promise<void> {
     const memberId = parseSocialBackButtonId(interaction.customId);
     if (!memberId) {

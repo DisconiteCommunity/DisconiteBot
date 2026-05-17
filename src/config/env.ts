@@ -44,11 +44,20 @@ const envSchema = z.object({
   /** Reddit API app credentials (script/app) — oauth.reddit.com user about. */
   REDDIT_CLIENT_ID: z.string().min(1).optional(),
   REDDIT_CLIENT_SECRET: z.string().min(1).optional(),
+
+  /** Seconds between Resonite metrics poll ticks (default 60). Min 15 enforced at runtime. */
+  RESONITE_METRICS_POLL_SECONDS: z.string().regex(/^\d+$/).optional(),
+  /** Per-guild soft-retries before dropping an unreachable metrics subscription (default 300). */
+  RESONITE_METRICS_MAX_RETRIES: z.string().regex(/^\d+$/).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
 
 let env: Env;
+
+function isMissingRequiredEnvIssue(issue: z.core.$ZodIssue): boolean {
+  return issue.code === "invalid_type" && issue.input === undefined;
+}
 
 export function validateEnv(): Env {
   try {
@@ -57,32 +66,20 @@ export function validateEnv(): Env {
   } catch (error) {
     if (error instanceof z.ZodError) {
       const missingVars = error.issues
-        .filter((e: z.ZodIssue) => {
-          if (e.code === "invalid_type") {
-            const invalidTypeIssue = e as z.ZodIssue & { received?: string };
-            return invalidTypeIssue.received === "undefined";
-          }
-          return false;
-        })
-        .map((e: z.ZodIssue) => e.path.join("."));
+        .filter(isMissingRequiredEnvIssue)
+        .map((issue) => issue.path.join("."));
       const invalidVars = error.issues
-        .filter((e: z.ZodIssue) => {
-          if (e.code === "invalid_type") {
-            const invalidTypeIssue = e as z.ZodIssue & { received?: string };
-            return invalidTypeIssue.received !== "undefined";
-          }
-          return true;
-        })
-        .map((e: z.ZodIssue) => `${e.path.join(".")}: ${e.message}`);
+        .filter((issue) => !isMissingRequiredEnvIssue(issue))
+        .map((issue) => `${issue.path.join(".")}: ${issue.message}`);
 
       let errorMessage = "Environment variable validation failed:\n\n";
 
       if (missingVars.length > 0) {
-        errorMessage += `Missing required variables:\n${missingVars.map((v: string) => `  - ${v}`).join("\n")}\n\n`;
+        errorMessage += `Missing required variables:\n${missingVars.map((v) => `  - ${v}`).join("\n")}\n\n`;
       }
 
       if (invalidVars.length > 0) {
-        errorMessage += `Invalid variables:\n${invalidVars.map((v: string) => `  - ${v}`).join("\n")}\n`;
+        errorMessage += `Invalid variables:\n${invalidVars.map((v) => `  - ${v}`).join("\n")}\n`;
       }
 
       throw new Error(errorMessage);
