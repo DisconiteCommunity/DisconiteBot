@@ -50,3 +50,26 @@ export const SOCIALS_PREVIEW_BUTTON_ID_PATTERN =
   /^socials_preview:[^:]+:[^:]+$/;
 
 export const SOCIALS_BACK_BUTTON_ID_PATTERN = /^socials_back:[^:]+$/;
+
+import { YDM_BOARD_KEY_PATTERN_SOURCE } from "../../services/github/yellowDogManProjects.js";
+
+/** YDM GitHub projects: pick a board (`ydm_projects_pick:froox`, …) */
+export const YDM_PROJECTS_PICK_BOARD_PREFIX = "ydm_projects_pick:";
+
+/** Optional `:doneBit:inProgressBit` suffixes (0 or 1) from `/projects list`. */
+export const YDM_PROJECTS_PICK_BOARD_PATTERN = new RegExp(
+  `^ydm_projects_pick:(${YDM_BOARD_KEY_PATTERN_SOURCE})(?::[01])?(?::[01])?$`,
+);
+
+/** YDM GitHub projects: paginated list/search (`ydmp:` + base64url state) */
+export const YDM_PROJECTS_PAGE_PREFIX = "ydmp:";
+
+export const YDM_PROJECTS_PAGE_PATTERN = /^ydmp:[A-Za-z0-9_-]+$/;
+
+/** Combined issue picker on board overview (`ydm_projects_sel:picker:0:0`) */
+export const YDM_PROJECTS_BOARD_SELECT_PATTERN =
+  /^ydm_projects_sel:picker:[01]:[01]$/;
+
+/** View one issue in an embed (`ydmpi:board|number|repo|flags`) */
+export const YDM_PROJECTS_ITEM_PATTERN =
+  /^ydmpi:[^|]+\|\d+\|[^|]*\|[01]{2}$/;

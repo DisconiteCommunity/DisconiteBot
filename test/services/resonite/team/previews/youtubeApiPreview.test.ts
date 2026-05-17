@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseYoutubeChannelRef } from "./youtubeApiPreview.js";
+import { parseYoutubeChannelRef } from "../../../../../src/services/resonite/team/previews/youtubeApiPreview.js";
 
 describe("parseYoutubeChannelRef", () => {
   it("parses @handle URLs", () => {

@@ -14,15 +14,44 @@ type XUserResponse = {
   };
 };
 
-function parseXUsername(url: string): string | null {
+const X_API_BASES = [
+  "https://api.twitter.com",
+  "https://api.x.com",
+] as const;
+
+/** Hostnames accepted for X / Twitter profile URLs in the team roster. */
+export function parseXUsername(url: string): string | null {
   try {
     const u = new URL(url);
     const host = u.hostname.replace(/^www\./, "").toLowerCase();
-    if (host !== "twitter.com" && host !== "x.com") {
+    const isTwitter =
+      host === "twitter.com" ||
+      host === "x.com" ||
+      host === "mobile.twitter.com" ||
+      host === "mobile.x.com" ||
+      host.endsWith(".twitter.com") ||
+      host.endsWith(".x.com");
+    if (!isTwitter) {
       return null;
     }
-    const seg = u.pathname.split("/").filter(Boolean)[0];
-    return seg ? decodeURIComponent(seg.replace(/^@/, "")) : null;
+
+    const parts = u.pathname.split("/").filter(Boolean);
+    if (parts[0] === "i" && parts[1] === "user" && parts[2]) {
+      return decodeURIComponent(parts[2].replace(/^@/, ""));
+    }
+
+    const seg = parts[0];
+    if (
+      !seg ||
+      seg === "home" ||
+      seg === "search" ||
+      seg === "intent" ||
+      seg === "share" ||
+      seg === "hashtag"
+    ) {
+      return null;
+    }
+    return decodeURIComponent(seg.replace(/^@/, ""));
   } catch {
     return null;
   }
@@ -32,6 +61,27 @@ function upsizeXAvatar(url: string): string {
   return url.replace(/_normal(\.(jpe?g|png|gif|webp))$/i, "_400x400$1");
 }
 
+async function fetchXUserByUsername(
+  username: string,
+  token: string,
+): Promise<XUserResponse["data"] | null> {
+  const params = new URLSearchParams({
+    "user.fields":
+      "description,profile_image_url,profile_banner_url,public_metrics",
+  });
+  const path = `/2/users/by/username/${encodeURIComponent(username)}?${params.toString()}`;
+
+  for (const base of X_API_BASES) {
+    const data = await fetchPlatformApiJson<XUserResponse>(`${base}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (data?.data) {
+      return data.data;
+    }
+  }
+  return null;
+}
+
 export async function fetchXApiPreview(url: string): Promise<PlatformPreview | null> {
   const token = getSocialApiConfig().xApiBearerToken;
   const username = parseXUsername(url);
@@ -39,17 +89,7 @@ export async function fetchXApiPreview(url: string): Promise<PlatformPreview | n
     return null;
   }
 
-  const params = new URLSearchParams({
-    "user.fields":
-      "description,profile_image_url,profile_banner_url,public_metrics",
-  });
-  const data = await fetchPlatformApiJson<XUserResponse>(
-    `https://api.x.com/2/users/by/username/${encodeURIComponent(username)}?${params.toString()}`,
-    {
-      headers: { Authorization: `Bearer ${token}` },
-    },
-  );
-  const user = data?.data;
+  const user = await fetchXUserByUsername(username, token);
   if (!user) {
     return null;
   }

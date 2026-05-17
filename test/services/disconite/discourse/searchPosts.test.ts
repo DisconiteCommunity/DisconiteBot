@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 
-vi.mock("../../../config/disconite.js", () => ({
+vi.mock("../../../../src/config/disconite.js", () => ({
   getDisconiteForumBaseUrl: () => "https://disconite.net",
 }));
 
@@ -8,7 +8,7 @@ import {
   buildForumPostUrl,
   formatForumAuthorLine,
   trustLevelLabel,
-} from "./searchPosts.js";
+} from "../../../../src/services/disconite/discourse/searchPosts.js";
 
 describe("buildForumPostUrl", () => {
   it("builds topic post URLs", () => {

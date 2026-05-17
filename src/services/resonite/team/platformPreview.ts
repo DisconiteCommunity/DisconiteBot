@@ -206,24 +206,28 @@ async function fetchWikiPreview(
   member: TeamMember,
   url: string,
 ): Promise<PlatformPreview | null> {
-  const title = member.wikiPath.replace(/^User:/i, "User:").trim();
-  const page = await fetchWikiPageWikitextIfExists(title);
-  if (!page) {
+  try {
+    const title = member.wikiPath.replace(/^User:/i, "User:").trim();
+    const page = await fetchWikiPageWikitextIfExists(title);
+    if (!page) {
+      return null;
+    }
+    const imageUrl = await resolveWikiImageUrlFromWikitext(page.wikitext);
+    const body = wikitextToDiscordMarkdown(page.wikitext, 700);
+    return {
+      platformLabel: platformLabel("wiki"),
+      title: page.title,
+      subtitle: member.role,
+      description: body ? truncateEllipsis(body, 900) : undefined,
+      stats: [`**Team:** ${member.section}`],
+      url,
+      images: imageUrl
+        ? [{ url: imageUrl, description: page.title }]
+        : [],
+    };
+  } catch {
     return null;
   }
-  const imageUrl = await resolveWikiImageUrlFromWikitext(page.wikitext);
-  const body = wikitextToDiscordMarkdown(page.wikitext, 700);
-  return {
-    platformLabel: platformLabel("wiki"),
-    title: page.title,
-    subtitle: member.role,
-    description: body ? truncateEllipsis(body, 900) : undefined,
-    stats: [`**Team:** ${member.section}`],
-    url,
-    images: imageUrl
-      ? [{ url: imageUrl, description: page.title }]
-      : [],
-  };
 }
 
 export async function fetchPlatformPreview(opts: {

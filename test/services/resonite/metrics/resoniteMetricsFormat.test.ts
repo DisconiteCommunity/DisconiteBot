@@ -5,12 +5,12 @@ import {
   pickTopSessionsForEmbeds,
   sessionMetricsDisplay,
   sumNumericRecord,
-} from "./resoniteMetricsFormat.js";
+} from "../../../../src/services/resonite/metrics/resoniteMetricsFormat.js";
 import type {
   ResoniteCloudStatsDto,
   ResoniteOnlineStatsDto,
   ResoniteSessionDto,
-} from "./resoniteMetricsFetch.js";
+} from "../../../../src/services/resonite/metrics/resoniteMetricsFetch.js";
 
 describe("sumNumericRecord", () => {
   it("sums numeric values regardless of key casing", () => {

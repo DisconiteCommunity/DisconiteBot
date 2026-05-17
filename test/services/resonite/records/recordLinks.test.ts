@@ -3,7 +3,7 @@ import {
   buildOpenInResoniteUrl,
   openInResoniteRecordButtonLabel,
   parseRecordInput,
-} from "./recordLinks.js";
+} from "../../../../src/services/resonite/records/recordLinks.js";
 
 describe("parseRecordInput", () => {
   it("parses resrec with three slashes", () => {

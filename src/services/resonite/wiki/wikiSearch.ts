@@ -1,5 +1,6 @@
 import { resoniteRichTextToDiscordPlain } from "../../../utility/text/resoniteRichText.js";
 import { truncateEllipsis } from "../../../utility/text/truncate.js";
+import { loggers } from "../../../utility/logging/logger.js";
 
 const WIKI_API = "https://wiki.resonite.com/api.php";
 const WIKI_SEARCH_TIMEOUT_MS = 15_000;
@@ -89,7 +90,11 @@ export async function fetchWikiPageWikitextIfExists(
       },
     });
     if (!res.ok) {
-      throw new Error(`Wiki query HTTP ${res.status}`);
+      loggers.resonite.warn("wiki page query HTTP error", {
+        status: res.status,
+        title: t,
+      });
+      return null;
     }
     const data = (await res.json()) as {
       query?: { pages?: Record<string, WikiQueryPage> };
@@ -107,6 +112,10 @@ export async function fetchWikiPageWikitextIfExists(
         return { title: p.title, wikitext: wt };
       }
     }
+    return null;
+  } catch (err) {
+    const name = err instanceof Error ? err.name : "Error";
+    loggers.resonite.warn("wiki page query failed", { title: t, name });
     return null;
   } finally {
     clearTimeout(timer);

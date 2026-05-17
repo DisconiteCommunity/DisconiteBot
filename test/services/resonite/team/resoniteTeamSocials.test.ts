@@ -8,7 +8,7 @@ import {
   resolveMemberPlatformLinks,
   RESONITE_TEAM_ROSTER,
   teamMemberAutocomplete,
-} from "./resoniteTeamSocials.js";
+} from "../../../../src/services/resonite/team/resoniteTeamSocials.js";
 
 describe("normalizePlatformInput", () => {
   it("maps x to twitter and resonite to wiki", () => {

@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
+    include: ["test/**/*.test.ts", "test/**/*.spec.ts"],
     exclude: ["node_modules", "build", "src/generated"],
     coverage: {
       provider: "v8",
@@ -17,8 +17,7 @@ export default defineConfig({
         "node_modules/",
         "build/",
         "src/generated/",
-        "**/*.test.ts",
-        "**/*.spec.ts",
+        "test/**",
         "**/*.config.ts",
       ],
     },

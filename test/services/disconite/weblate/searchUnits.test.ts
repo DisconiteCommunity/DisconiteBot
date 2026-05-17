@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { formatWeblateTranslationLangBlock } from "../../../utility/discord/translationComponentsV2.js";
+import { formatWeblateTranslationLangBlock } from "../../../../src/utility/discord/translationComponentsV2.js";
 import {
   buildWeblateSearchQuery,
   quoteWeblateTerm,
-} from "./searchUnits.js";
+} from "../../../../src/services/disconite/weblate/searchUnits.js";
 
 describe("buildWeblateSearchQuery", () => {
   it("uses raw query when provided", () => {

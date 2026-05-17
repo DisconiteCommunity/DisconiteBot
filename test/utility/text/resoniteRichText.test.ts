@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   resoniteRichTextToDiscordPlain,
   stripResoniteRichText,
-} from "./resoniteRichText.js";
+} from "../../../src/utility/text/resoniteRichText.js";
 
 describe("resoniteRichTextToDiscordPlain", () => {
   it("maps b i u s to Discord markdown", () => {

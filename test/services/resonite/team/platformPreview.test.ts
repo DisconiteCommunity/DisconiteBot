@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { fetchPlatformPreview } from "./platformPreview.js";
-import { RESONITE_TEAM_ROSTER } from "./resoniteTeamSocials.js";
+import { fetchPlatformPreview } from "../../../../src/services/resonite/team/platformPreview.js";
+import { RESONITE_TEAM_ROSTER } from "../../../../src/services/resonite/team/resoniteTeamSocials.js";
 
 describe("fetchPlatformPreview", () => {
   afterEach(() => {

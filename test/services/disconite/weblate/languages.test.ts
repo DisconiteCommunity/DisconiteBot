@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   filterTranslationsByLanguages,
   parseLanguageFilter,
-} from "./languages.js";
+} from "../../../../src/services/disconite/weblate/languages.js";
 
 describe("parseLanguageFilter", () => {
   it("returns null when empty", () => {

@@ -1,6 +1,6 @@
 import { MessageFlags } from "discord.js";
 import { describe, expect, it } from "vitest";
-import { metricsMessageNeedsReplace } from "./resoniteMetricsComponentsV2.js";
+import { metricsMessageNeedsReplace } from "../../../../src/services/resonite/metrics/resoniteMetricsComponentsV2.js";
 
 describe("metricsMessageNeedsReplace", () => {
   it("detects legacy content and embeds", () => {

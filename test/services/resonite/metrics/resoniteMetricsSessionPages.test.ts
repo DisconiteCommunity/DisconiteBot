@@ -9,7 +9,7 @@ import {
   metricsSessionsPageSlice,
   parseMetricsSessionsPageId,
   parseMetricsSessionsPageInput,
-} from "./resoniteMetricsSessionPages.js";
+} from "../../../../src/services/resonite/metrics/resoniteMetricsSessionPages.js";
 
 describe("metricsSessionsPageSlice", () => {
   const ranked = Array.from({ length: 13 }, (_, i) => ({

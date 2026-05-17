@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { truncateEllipsis } from "./truncate.js";
+import { truncateEllipsis } from "../../../src/utility/text/truncate.js";
 
 describe("truncateEllipsis", () => {
   it("leaves short strings unchanged", () => {

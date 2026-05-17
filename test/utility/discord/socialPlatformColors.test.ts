@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getPlatformAccentColor } from "./socialPlatformColors.js";
+import { getPlatformAccentColor } from "../../../src/utility/discord/socialPlatformColors.js";
 
 describe("getPlatformAccentColor", () => {
   it("maps known platforms", () => {

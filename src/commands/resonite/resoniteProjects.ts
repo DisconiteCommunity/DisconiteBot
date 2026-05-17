@@ -1,0 +1,287 @@
+import { Discord, Slash, SlashGroup, SlashOption } from "discordx";
+import {
+  ApplicationCommandOptionType,
+  AutocompleteInteraction,
+  CommandInteraction,
+  MessageFlags,
+} from "discord.js";
+import { isGitHubConfigured } from "../../config/github.js";
+import { GitHubApiError } from "../../services/github/githubGraphql.js";
+import { ydmProjectTitleAutocomplete } from "../../services/github/ydmProjectsCache.js";
+import {
+  buildYdmProjectsErrorComponents,
+  ydmProjectsMessagePayload,
+} from "../../services/github/ydmProjectsComponentsV2.js";
+import {
+  missingGitHubTokenMessage,
+  renderYdmProjectsPage,
+} from "../../services/github/ydmProjectsReply.js";
+import type { InteractionEditReplyOptions } from "discord.js";
+import {
+  parseYdmProjectsBoardParam,
+  type YdmProjectsPageState,
+} from "../../services/github/ydmProjectsPages.js";
+import {
+  parseYdmProjectBoardKey,
+  YDM_PROJECT_BOARDS,
+  YDM_PROJECT_BOARD_KEYS,
+  type YdmProjectKey,
+} from "../../services/github/yellowDogManProjects.js";
+import { toDiscordStringAutocompleteChoices } from "../../utility/discord/discordAutocompleteChoices.js";
+import { loggers } from "../../utility/logging/logger.js";
+import { truncateEllipsis } from "../../utility/text/truncate.js";
+import { replyWithYdmBoardPicker } from "./resoniteProjectsHandlers.js";
+
+const LIST_BOARD_CHOICES = YDM_PROJECT_BOARDS.map((b) => ({
+  name: b.memberLabel,
+  value: b.key,
+}));
+
+const SEARCH_BOARD_CHOICES = [
+  { name: "All boards", value: "all" },
+  ...LIST_BOARD_CHOICES,
+];
+
+function filterBoardChoices(
+  choices: readonly { name: string; value: string }[],
+  query: string,
+): { name: string; value: string }[] {
+  const q = query.trim().toLowerCase();
+  const pool = q
+    ? choices.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) || c.value.toLowerCase().includes(q),
+      )
+    : [...choices];
+  return pool.slice(0, 25);
+}
+
+async function projectsAutocomplete(
+  interaction: AutocompleteInteraction,
+): Promise<void> {
+  if (!isGitHubConfigured()) {
+    await interaction.respond([]);
+    return;
+  }
+
+  const focused = interaction.options.getFocused(true);
+  const query =
+    typeof focused.value === "string" ? focused.value : String(focused.value);
+
+  if (focused.name === "board") {
+    const pool =
+      interaction.commandName === "search"
+        ? SEARCH_BOARD_CHOICES
+        : LIST_BOARD_CHOICES;
+    await interaction.respond(filterBoardChoices(pool, query));
+    return;
+  }
+
+  if (focused.name === "query" && interaction.commandName === "search") {
+    const boardRaw = interaction.options.getString("board", true);
+    const board = parseYdmProjectsBoardParam(boardRaw);
+    if (!board) {
+      await interaction.respond([]);
+      return;
+    }
+    const includeDone = interaction.options.getBoolean("done") === true;
+    try {
+      const titles = await ydmProjectTitleAutocomplete(
+        board,
+        query,
+        includeDone,
+      );
+      await interaction.respond(toDiscordStringAutocompleteChoices(titles));
+    } catch (err) {
+      loggers.resonite.warn("projects query autocomplete failed", err);
+      await interaction.respond([]);
+    }
+  }
+}
+
+function formatBoardKeysHint(): string {
+  return YDM_PROJECT_BOARD_KEYS.map((k) => `**${k}**`).join(", ");
+}
+
+function parseListBoard(raw: string | undefined): YdmProjectKey | null {
+  return parseYdmProjectBoardKey(raw);
+}
+
+@Discord()
+@SlashGroup({
+  name: "resonite",
+  description:
+    "Resonite wiki, accounts, records, and team socials (public APIs + roster).",
+})
+@SlashGroup({
+  name: "projects",
+  root: "resonite",
+  description:
+    "Browse Yellow-Dog-Man GitHub Project boards (team + community).",
+})
+@SlashGroup("projects", "resonite")
+export class ResoniteProjectsCommands {
+  @Slash({
+    name: "list",
+    description:
+      "Browse a team GitHub board (pick a board, or set board). Done items hidden unless done is true.",
+  })
+  async list(
+    @SlashOption({
+      name: "board",
+      description: "Board key or name (omit to pick from menus)",
+      type: ApplicationCommandOptionType.String,
+      required: false,
+      autocomplete: projectsAutocomplete,
+    })
+    board: string | undefined,
+    @SlashOption({
+      name: "in_progress",
+      description: "Only items whose Status is In Progress / Doing",
+      type: ApplicationCommandOptionType.Boolean,
+      required: false,
+    })
+    inProgress: boolean | undefined,
+    @SlashOption({
+      name: "done",
+      description: "Include done / closed items (default: hidden)",
+      type: ApplicationCommandOptionType.Boolean,
+      required: false,
+    })
+    done: boolean | undefined,
+    interaction: CommandInteraction,
+  ): Promise<void> {
+    if (!isGitHubConfigured()) {
+      await interaction.reply({ content: missingGitHubTokenMessage() });
+      return;
+    }
+
+    await interaction.deferReply();
+
+    try {
+      const boardKey = board ? parseListBoard(board) : null;
+      if (board && boardKey === null) {
+        await interaction.editReply({
+          content: `Unknown board. Use ${formatBoardKeysHint()}, or omit board to pick from menus.`,
+        });
+        return;
+      }
+
+      if (!boardKey) {
+        await replyWithYdmBoardPicker(interaction, {
+          done: done === true,
+          inProgress: inProgress === true,
+        });
+        return;
+      }
+
+      const state: YdmProjectsPageState = {
+        v: 1,
+        m: "list",
+        b: boardKey,
+        p: 0,
+        ...(done ? { d: 1 } : {}),
+        ...(inProgress ? { i: 1 } : {}),
+      };
+      await renderYdmProjectsPage(interaction, state);
+    } catch (err) {
+      loggers.resonite.error("projects list failed", err, { board, inProgress, done });
+      await interaction.editReply(
+        ydmProjectsMessagePayload(
+          buildYdmProjectsErrorComponents(
+            truncateEllipsis(
+              err instanceof GitHubApiError
+                ? "Could not load GitHub project boards."
+                : "Could not load GitHub project boards. Try again later.",
+              300,
+            ),
+          ),
+        ) as InteractionEditReplyOptions,
+      );
+    }
+  }
+
+  @Slash({
+    name: "search",
+    description:
+      "Search project items on a board (pick board first; query autocompletes known titles).",
+  })
+  async search(
+    @SlashOption({
+      name: "board",
+      description: "Board to search (all, or a board key from autocomplete)",
+      type: ApplicationCommandOptionType.String,
+      required: true,
+      autocomplete: projectsAutocomplete,
+    })
+    board: string,
+    @SlashOption({
+      name: "query",
+      description: "Keyword or pick a suggested title",
+      type: ApplicationCommandOptionType.String,
+      required: true,
+      autocomplete: projectsAutocomplete,
+    })
+    query: string,
+    @SlashOption({
+      name: "done",
+      description: "Include done / closed items (default: hidden)",
+      type: ApplicationCommandOptionType.Boolean,
+      required: false,
+    })
+    done: boolean | undefined,
+    interaction: CommandInteraction,
+  ): Promise<void> {
+    if (!isGitHubConfigured()) {
+      await interaction.reply({ content: missingGitHubTokenMessage() });
+      return;
+    }
+
+    const boardKey = parseYdmProjectsBoardParam(board);
+    if (!boardKey) {
+      await interaction.reply({
+        content: `Unknown board. Use **all** or ${formatBoardKeysHint()}.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const q = query.trim();
+    if (!q) {
+      await interaction.reply({
+        content: "Enter a search keyword.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    await interaction.deferReply();
+
+    try {
+      const state: YdmProjectsPageState = {
+        v: 1,
+        m: "search",
+        b: boardKey,
+        p: 0,
+        q,
+        ...(done ? { d: 1 } : {}),
+      };
+      await renderYdmProjectsPage(interaction, state);
+    } catch (err) {
+      loggers.resonite.error("projects search failed", err, { board, query, done });
+      await interaction.editReply(
+        ydmProjectsMessagePayload(
+          buildYdmProjectsErrorComponents(
+            truncateEllipsis(
+              err instanceof GitHubApiError
+                ? "GitHub project search failed."
+                : "GitHub project search failed. Try again later.",
+              300,
+            ),
+          ),
+        ) as InteractionEditReplyOptions,
+      );
+    }
+  }
+
+}

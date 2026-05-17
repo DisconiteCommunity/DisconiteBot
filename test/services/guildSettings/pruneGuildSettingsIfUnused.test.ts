@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import type { PrismaClient } from "../../generated/prisma/client.js";
-import { pruneGuildSettingsIfUnused } from "./pruneGuildSettingsIfUnused.js";
+import type { PrismaClient } from "../../../src/generated/prisma/client.js";
+import { pruneGuildSettingsIfUnused } from "../../../src/services/guildSettings/pruneGuildSettingsIfUnused.js";
 
 describe("pruneGuildSettingsIfUnused", () => {
   it("deletes row when metrics cleared and extras absent", async () => {

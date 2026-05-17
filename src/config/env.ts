@@ -45,6 +45,11 @@ const envSchema = z.object({
   REDDIT_CLIENT_ID: z.string().min(1).optional(),
   REDDIT_CLIENT_SECRET: z.string().min(1).optional(),
 
+  /** GitHub PAT with `read:project` (and `read:org` for org projects) — Yellow-Dog-Man project boards. */
+  GITHUB_TOKEN: z.string().min(1).optional(),
+  /** GitHub GraphQL + project board cache TTL in seconds (default 300, clamped 60–3600). */
+  GITHUB_CACHE_TTL_SECONDS: z.string().regex(/^\d+$/).optional(),
+
   /** Seconds between Resonite metrics poll ticks (default 60). Min 15 enforced at runtime. */
   RESONITE_METRICS_POLL_SECONDS: z.string().regex(/^\d+$/).optional(),
   /** Per-guild soft-retries before dropping an unreachable metrics subscription (default 300). */

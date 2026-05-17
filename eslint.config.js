@@ -21,7 +21,7 @@ export default [
     },
   },
   {
-    files: ["**/*.ts", "**/*.tsx"],
+    files: ["src/**/*.ts", "src/**/*.tsx"],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
@@ -69,7 +69,56 @@ export default [
     },
   },
   {
+    files: ["test/**/*.ts"],
+    languageOptions: {
+      parser: tsparser,
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+        project: "./tsconfig.test.json",
+      },
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        Buffer: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
+        fetch: "readonly",
+        NodeJS: "readonly",
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tseslint,
+    },
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+      "no-unused-vars": "off",
+      "@typescript-eslint/explicit-function-return-type": "off",
+      "@typescript-eslint/no-non-null-assertion": "warn",
+      "no-console": "off",
+      "prefer-const": "warn",
+      "no-var": "error",
+      "eqeqeq": ["warn", "always"],
+      "curly": ["warn", "all"],
+      "no-throw-literal": "warn",
+      "prefer-promise-reject-errors": "warn",
+      "no-useless-catch": "error",
+      "no-empty": "error",
+    },
+  },
+  {
     ignores: [
+      "test/**",
       "build/**",
       "node_modules/**",
       "src/generated/**",
