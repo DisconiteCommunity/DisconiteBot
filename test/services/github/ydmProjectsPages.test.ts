@@ -32,12 +32,20 @@ function item(title: string, number: number): YdmProjectItem {
 }
 
 describe("ydmProjectsPageSlice", () => {
-  it("pages twenty-five items at a time", () => {
+  it("pages twenty-five items at a time by default", () => {
     const items = Array.from({ length: 60 }, (_, i) => item(`n${i}`, 100 + i));
     expect(ydmProjectsPageSlice(items, 0)).toHaveLength(25);
     expect(ydmProjectsPageSlice(items, 1)).toHaveLength(25);
     expect(ydmProjectsPageSlice(items, 2)).toHaveLength(10);
     expect(ydmProjectsPageCount(60)).toBe(3);
+  });
+
+  it("accepts a custom page size", () => {
+    const items = Array.from({ length: 25 }, (_, i) => item(`n${i}`, 200 + i));
+    expect(ydmProjectsPageSlice(items, 0, 10)).toHaveLength(10);
+    expect(ydmProjectsPageSlice(items, 1, 10)).toHaveLength(10);
+    expect(ydmProjectsPageSlice(items, 2, 10)).toHaveLength(5);
+    expect(ydmProjectsPageCount(25, 10)).toBe(3);
   });
 });
 
@@ -63,6 +71,25 @@ describe("encodeYdmProjectItemId", () => {
 });
 
 describe("encodeYdmProjectsPageId", () => {
+  it("round-trips optional page size for GitHub search boards view", () => {
+    const id = encodeYdmProjectsPageId({
+      v: 1,
+      m: "search",
+      b: "all",
+      p: 0,
+      pageSize: 10,
+      q: "bug",
+    });
+    expect(parseYdmProjectsPageId(id)).toEqual({
+      v: 1,
+      m: "search",
+      b: "all",
+      p: 0,
+      pageSize: 10,
+      q: "bug",
+    });
+  });
+
   it("round-trips list state", () => {
     const id = encodeYdmProjectsPageId({
       v: 1,

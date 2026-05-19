@@ -13,6 +13,7 @@ import {
 import {
   clampYdmProjectsPageIndex,
   filterYdmProjectItemsByStatusColumn,
+  YDM_PROJECTS_PAGE_SIZE,
   YDM_PROJECTS_STATUS_FILTER_NONE,
   type YdmProjectsBoardParam,
   type YdmProjectsPageState,
@@ -78,8 +79,10 @@ export async function renderYdmProjectsPage(
     | CommandInteraction
     | MessageComponentInteraction,
   state: YdmProjectsPageState,
-  editOpts?: { fromDeferUpdate?: boolean },
+  editOpts?: { fromDeferUpdate?: boolean; pageSize?: number },
 ): Promise<void> {
+  const resolvedPageSize =
+    state.pageSize ?? editOpts?.pageSize ?? YDM_PROJECTS_PAGE_SIZE;
   const includeDone = state.d === 1;
   const inProgressOnly = state.i === 1;
   const { boards, items: itemsBeforeStatus } = await getFilteredYdmProjectItems({
@@ -100,9 +103,9 @@ export async function renderYdmProjectsPage(
     state.statusFilter,
   );
 
-  const totalPages = ydmProjectsPageCount(items.length);
+  const totalPages = ydmProjectsPageCount(items.length, resolvedPageSize);
   const pageIndex = clampYdmProjectsPageIndex(state.p, totalPages);
-  const pageState = { ...state, p: pageIndex };
+  const pageState = { ...state, p: pageIndex, pageSize: resolvedPageSize };
 
   const { title, boardUrl } = boardHeader(
     state.b,
@@ -130,6 +133,7 @@ export async function renderYdmProjectsPage(
         pageState,
         boardUrl,
         null,
+        resolvedPageSize,
       ),
     );
     if (editOpts?.fromDeferUpdate && interaction.isMessageComponent()) {
@@ -152,6 +156,7 @@ export async function renderYdmProjectsPage(
         pageState,
         boardUrl,
         statusMenuPayload,
+        resolvedPageSize,
       ),
     );
     await interaction.editReply(payload as InteractionEditReplyOptions);
@@ -165,6 +170,7 @@ export async function renderYdmProjectsPage(
     pageState,
     boardUrl,
     statusMenuPayload,
+    resolvedPageSize,
   );
   const payload = ydmProjectsMessagePayload(components);
   await interaction.editReply(payload as InteractionEditReplyOptions);

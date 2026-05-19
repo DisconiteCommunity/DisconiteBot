@@ -51,6 +51,7 @@ import {
 } from "../../utility/discord/discordInteractionIds.js";
 import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
 import { loggers } from "../../utility/logging/logger.js";
+import { YDM_ISSUES_SEARCH_BOARDS_PAGE_SIZE } from "../../services/github/ydmProjectsPages.js";
 
 const modalStateByUser = new Map<
   string,
@@ -225,6 +226,7 @@ export class ResoniteSearchIssuesHandlers {
           m: parsedDashboard.state.query ? "search" : "list",
           b: parsedDashboard.state.board ?? "all",
           p: 0,
+          pageSize: YDM_ISSUES_SEARCH_BOARDS_PAGE_SIZE,
           ...(parsedDashboard.state.query ? { q: parsedDashboard.state.query } : {}),
         });
         return;

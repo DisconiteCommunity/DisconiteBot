@@ -9,6 +9,12 @@ import {
 export const YDM_PROJECTS_PAGE_SIZE = 25;
 
 /**
+ * Page size when the board list is opened from **`/resonite search` `github`** (boards scope).
+ * Smaller than {@link YDM_PROJECTS_PAGE_SIZE} so each message stays readable.
+ */
+export const YDM_ISSUES_SEARCH_BOARDS_PAGE_SIZE = 10;
+
+/**
  * Max base64url payload length after the `ydmp:` prefix so the full string fits Discord’s
  * 100-char `custom_id` limit (used by page buttons and by `yi:` / `ys:` string selects).
  */
@@ -38,6 +44,11 @@ export type YdmProjectsPageState = {
   q?: string;
   /** GitHub project Status field; omit or empty = all columns. */
   statusFilter?: string;
+  /**
+   * Items per page when rendering board list/search (default {@link YDM_PROJECTS_PAGE_SIZE}).
+   * Serialized as `ps` in `ydmp:` wire when not the default.
+   */
+  pageSize?: number;
 };
 
 /** Resolved from a “view issue” button (`ydmpi:board|number|repo|flags`). */
@@ -51,19 +62,23 @@ export type YdmProjectItemRef = {
 
 export const YDM_PROJECT_ITEM_ID_MAX_LEN = 100;
 
-export function ydmProjectsPageCount(itemCount: number): number {
-  if (itemCount <= 0) {
+export function ydmProjectsPageCount(
+  itemCount: number,
+  pageSize: number = YDM_PROJECTS_PAGE_SIZE,
+): number {
+  if (itemCount <= 0 || pageSize <= 0) {
     return 0;
   }
-  return Math.ceil(itemCount / YDM_PROJECTS_PAGE_SIZE);
+  return Math.ceil(itemCount / pageSize);
 }
 
 export function ydmProjectsPageSlice(
   items: readonly YdmProjectItem[],
   pageIndex: number,
+  pageSize: number = YDM_PROJECTS_PAGE_SIZE,
 ): YdmProjectItem[] {
-  const start = pageIndex * YDM_PROJECTS_PAGE_SIZE;
-  return items.slice(start, start + YDM_PROJECTS_PAGE_SIZE);
+  const start = pageIndex * pageSize;
+  return items.slice(start, start + pageSize);
 }
 
 export function ydmProjectsHasPreviousPage(pageIndex: number): boolean {
@@ -73,8 +88,9 @@ export function ydmProjectsHasPreviousPage(pageIndex: number): boolean {
 export function ydmProjectsHasMorePages(
   items: readonly YdmProjectItem[],
   pageIndex: number,
+  pageSize: number = YDM_PROJECTS_PAGE_SIZE,
 ): boolean {
-  return (pageIndex + 1) * YDM_PROJECTS_PAGE_SIZE < items.length;
+  return (pageIndex + 1) * pageSize < items.length;
 }
 
 export function clampYdmProjectsPageIndex(
@@ -113,6 +129,8 @@ type YdmProjectsPageWire = {
   q?: string;
   /** Status column filter (short for `statusFilter`) */
   f?: string;
+  /** Page size when not {@link YDM_PROJECTS_PAGE_SIZE} */
+  ps?: number;
 };
 
 function wireToBase64(wire: YdmProjectsPageWire): string {
@@ -129,6 +147,15 @@ export function encodeYdmProjectsPageId(state: YdmProjectsPageState): string {
       ? state.statusFilter.trim().slice(0, 100)
       : undefined;
 
+  const pageSizeWire =
+    typeof state.pageSize === "number" &&
+    Number.isFinite(state.pageSize) &&
+    state.pageSize > 0 &&
+    state.pageSize <= YDM_PROJECTS_PAGE_SIZE &&
+    state.pageSize !== YDM_PROJECTS_PAGE_SIZE
+      ? Math.floor(state.pageSize)
+      : undefined;
+
   const baseWire = (): YdmProjectsPageWire => ({
     v: 1,
     m: state.m === "list" ? "l" : "s",
@@ -138,6 +165,7 @@ export function encodeYdmProjectsPageId(state: YdmProjectsPageState): string {
     ...(state.i ? { i: 1 as const } : {}),
     ...(q ? { q } : {}),
     ...(f ? { f } : {}),
+    ...(pageSizeWire ? { ps: pageSizeWire } : {}),
   });
 
   for (;;) {
@@ -162,6 +190,7 @@ export function encodeYdmProjectsPageId(state: YdmProjectsPageState): string {
       p: state.p,
       ...(state.d ? { d: 1 as const } : {}),
       ...(state.i ? { i: 1 as const } : {}),
+      ...(pageSizeWire ? { ps: pageSizeWire } : {}),
     });
     if (minimal.length > YDM_PROJECTS_PAGE_ID_B64_MAX) {
       throw new Error(
@@ -209,6 +238,19 @@ export function parseYdmProjectsPageId(customId: string): YdmProjectsPageState |
     const statusLegacy =
       typeof wire.statusFilter === "string" ? wire.statusFilter.trim() : "";
     const statusRaw = (statusFromF || statusLegacy).trim();
+    const psRaw = (raw as { ps?: unknown }).ps;
+    let pageSize: number | undefined;
+    if (
+      typeof psRaw === "number" &&
+      Number.isFinite(psRaw) &&
+      psRaw > 0 &&
+      psRaw <= YDM_PROJECTS_PAGE_SIZE
+    ) {
+      const ps = Math.floor(psRaw);
+      if (ps !== YDM_PROJECTS_PAGE_SIZE) {
+        pageSize = ps;
+      }
+    }
     return {
       v: 1,
       m,
@@ -218,6 +260,7 @@ export function parseYdmProjectsPageId(customId: string): YdmProjectsPageState |
       ...(raw.i ? { i: 1 } : {}),
       ...(q ? { q } : {}),
       ...(statusRaw ? { statusFilter: statusRaw.slice(0, 100) } : {}),
+      ...(pageSize !== undefined ? { pageSize } : {}),
     };
   } catch {
     return null;

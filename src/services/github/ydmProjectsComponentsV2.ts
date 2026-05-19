@@ -285,11 +285,12 @@ export function buildYdmProjectsPageComponents(
   pageState: YdmProjectsPageState,
   boardUrl: string | null,
   statusColumnMenu: YdmProjectsStatusColumnMenuPayload | null = null,
+  pageSize: number = YDM_PROJECTS_PAGE_SIZE,
 ): ContainerBuilder[] {
-  const totalPages = ydmProjectsPageCount(items.length);
+  const totalPages = ydmProjectsPageCount(items.length, pageSize);
   const page = pageState.p;
-  const start = page * YDM_PROJECTS_PAGE_SIZE;
-  const slice = items.slice(start, start + YDM_PROJECTS_PAGE_SIZE);
+  const start = page * pageSize;
+  const slice = items.slice(start, start + pageSize);
 
   const bodyLines: string[] = [
     header,
@@ -341,7 +342,7 @@ export function buildYdmProjectsPageComponents(
         )
         .setLabel(">")
         .setStyle(ButtonStyle.Secondary)
-        .setDisabled(!ydmProjectsHasMorePages(items, page)),
+        .setDisabled(!ydmProjectsHasMorePages(items, page, pageSize)),
     );
     container.addActionRowComponents(navRow);
   }
