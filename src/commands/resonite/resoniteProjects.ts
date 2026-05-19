@@ -7,7 +7,7 @@ import {
 } from "discord.js";
 import { isGitHubConfigured } from "../../config/github.js";
 import { GitHubApiError } from "../../services/github/githubGraphql.js";
-import { ydmProjectTitleAutocomplete } from "../../services/github/ydmProjectsCache.js";
+import { ydmProjectTitleAutocomplete, getYdmProjectBoardsCached } from "../../services/github/ydmProjectsCache.js";
 import {
   buildYdmProjectsErrorComponents,
   ydmProjectsMessagePayload,
@@ -23,8 +23,9 @@ import {
 } from "../../services/github/ydmProjectsPages.js";
 import {
   parseYdmProjectBoardKey,
-  YDM_PROJECT_BOARDS,
+  parseYdmProjectBoardKeyWithBoards,
   YDM_PROJECT_BOARD_KEYS,
+  ydmBoardDisplayName,
   type YdmProjectKey,
 } from "../../services/github/yellowDogManProjects.js";
 import { toDiscordStringAutocompleteChoices } from "../../utility/discord/discordAutocompleteChoices.js";
@@ -32,15 +33,19 @@ import { loggers } from "../../utility/logging/logger.js";
 import { truncateEllipsis } from "../../utility/text/truncate.js";
 import { replyWithYdmBoardPicker } from "./resoniteProjectsHandlers.js";
 
-const LIST_BOARD_CHOICES = YDM_PROJECT_BOARDS.map((b) => ({
-  name: b.memberLabel,
-  value: b.key,
-}));
-
-const SEARCH_BOARD_CHOICES = [
-  { name: "All boards", value: "all" },
-  ...LIST_BOARD_CHOICES,
-];
+async function boardAutocompleteChoices(
+  commandName: string,
+): Promise<{ name: string; value: string }[]> {
+  const boards = await getYdmProjectBoardsCached();
+  const mapped = boards.map((b) => ({
+    name: truncateEllipsis(ydmBoardDisplayName(b), 100),
+    value: b.key,
+  }));
+  if (commandName === "search") {
+    return [{ name: "All boards", value: "all" }, ...mapped];
+  }
+  return mapped;
+}
 
 function filterBoardChoices(
   choices: readonly { name: string; value: string }[],
@@ -69,11 +74,13 @@ async function projectsAutocomplete(
     typeof focused.value === "string" ? focused.value : String(focused.value);
 
   if (focused.name === "board") {
-    const pool =
-      interaction.commandName === "search"
-        ? SEARCH_BOARD_CHOICES
-        : LIST_BOARD_CHOICES;
-    await interaction.respond(filterBoardChoices(pool, query));
+    try {
+      const pool = await boardAutocompleteChoices(interaction.commandName);
+      await interaction.respond(filterBoardChoices(pool, query));
+    } catch (err) {
+      loggers.resonite.warn("projects board autocomplete failed", err);
+      await interaction.respond([]);
+    }
     return;
   }
 
@@ -103,8 +110,18 @@ function formatBoardKeysHint(): string {
   return YDM_PROJECT_BOARD_KEYS.map((k) => `**${k}**`).join(", ");
 }
 
-function parseListBoard(raw: string | undefined): YdmProjectKey | null {
-  return parseYdmProjectBoardKey(raw);
+async function parseListBoardInput(
+  raw: string | undefined,
+): Promise<YdmProjectKey | null> {
+  const fromStatic = parseYdmProjectBoardKey(raw);
+  if (fromStatic) {
+    return fromStatic;
+  }
+  if (!raw?.trim()) {
+    return null;
+  }
+  const boards = await getYdmProjectBoardsCached();
+  return parseYdmProjectBoardKeyWithBoards(boards, raw);
 }
 
 @Discord()
@@ -159,7 +176,7 @@ export class ResoniteProjectsCommands {
     await interaction.deferReply();
 
     try {
-      const boardKey = board ? parseListBoard(board) : null;
+      const boardKey = board ? await parseListBoardInput(board) : null;
       if (board && boardKey === null) {
         await interaction.editReply({
           content: `Unknown board. Use ${formatBoardKeysHint()}, or omit board to pick from menus.`,

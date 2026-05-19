@@ -3,7 +3,7 @@ import type {
   InteractionEditReplyOptions,
   MessageComponentInteraction,
 } from "discord.js";
-import { findProjectBoard } from "./yellowDogManProjects.js";
+import { findProjectBoard, ydmBoardDisplayName } from "./yellowDogManProjects.js";
 import { getFilteredYdmProjectItems } from "./ydmProjectsCache.js";
 import {
   buildYdmProjectsPageComponents,
@@ -31,10 +31,11 @@ function boardHeader(
     return { title, boardUrl: null };
   }
   const hit = findProjectBoard(boards, board);
+  const display = hit ? ydmBoardDisplayName(hit) : String(board);
   const title =
     mode === "search" && query
-      ? `${hit?.memberLabel ?? board} · “${query}”`
-      : `${hit?.memberLabel ?? board} — ${hit?.title ?? "board"}`;
+      ? `${display} · “${query}”`
+      : display;
   return { title, boardUrl: hit?.boardUrl ?? null };
 }
 

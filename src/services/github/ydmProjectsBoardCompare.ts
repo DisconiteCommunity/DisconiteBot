@@ -4,6 +4,7 @@ import {
   isInProgressItem,
   isYdmProjectKey,
   sortYdmProjectItemsForDisplay,
+  ydmBoardDisplayName,
   type YdmProjectBoard,
   type YdmProjectItem,
   type YdmProjectKey,
@@ -143,7 +144,7 @@ export function formatYdmBoardCompareMarkdown(
     "",
     ...rows.map(
       (r) =>
-        `- **${r.board.memberLabel}** — ${r.visibleCount} shown · ${r.inProgressCount} in progress`,
+        `- **${ydmBoardDisplayName(r.board)}** — ${r.visibleCount} shown · ${r.inProgressCount} in progress`,
     ),
   ];
   if (opts.inProgressOnly) {

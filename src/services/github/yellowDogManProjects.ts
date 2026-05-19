@@ -64,6 +64,56 @@ export function parseYdmProjectBoardKey(
   return hit?.key ?? null;
 }
 
+/** Human-facing board name: GitHub project title when known, else configured label. */
+export function ydmBoardDisplayName(
+  board: Pick<YdmProjectBoard, "title" | "memberLabel">,
+): string {
+  const placeholder = `${board.memberLabel} board`;
+  const t = board.title?.trim();
+  if (t && t !== placeholder) {
+    return t;
+  }
+  return board.memberLabel;
+}
+
+/**
+ * Resolve board key from user input using static aliases plus cached GitHub project titles.
+ */
+export function parseYdmProjectBoardKeyWithBoards(
+  boards: readonly YdmProjectBoard[],
+  raw: string | null | undefined,
+): YdmProjectKey | null {
+  const fromStatic = parseYdmProjectBoardKey(raw);
+  if (fromStatic) {
+    return fromStatic;
+  }
+  const v = (raw ?? "").trim().toLowerCase();
+  if (!v) {
+    return null;
+  }
+  const exact = boards.filter(
+    (b) =>
+      ydmBoardDisplayName(b).toLowerCase() === v ||
+      (b.title?.trim().toLowerCase() ?? "") === v,
+  );
+  if (exact.length === 1) {
+    const only = exact[0];
+    if (only) {
+      return only.key;
+    }
+  }
+  const partial = boards.filter((b) =>
+    ydmBoardDisplayName(b).toLowerCase().includes(v),
+  );
+  if (partial.length === 1) {
+    const only = partial[0];
+    if (only) {
+      return only.key;
+    }
+  }
+  return null;
+}
+
 export type YdmProjectBoard = (typeof YDM_PROJECT_BOARDS)[number] & {
   readonly title: string;
 };
@@ -252,7 +302,8 @@ function parseItemNode(
   return {
     projectKey: board.key,
     projectTitle: board.title,
-    memberLabel: board.memberLabel,
+    /** Same as project title so UI matches GitHub (static memberLabel is only a fallback key hint). */
+    memberLabel: board.title,
     title: content.title.trim(),
     number,
     url,
@@ -351,7 +402,17 @@ export async function fetchYdmProjectsBundle(): Promise<{
         title: `${def.memberLabel} board`,
       };
       const items = await fetchAllProjectItemsForNumber(def.number, stub);
-      const title = items[0]?.projectTitle ?? stub.title;
+      let title = items[0]?.projectTitle ?? stub.title;
+      if (!items.length) {
+        try {
+          const meta = await fetchProjectBoardMeta(def.number);
+          if (meta?.title) {
+            title = meta.title;
+          }
+        } catch {
+          /* keep stub title */
+        }
+      }
       return {
         board: { ...def, title },
         items,
@@ -378,7 +439,10 @@ export function findProjectBoard(
         b.key === q ||
         b.memberLabel.toLowerCase() === q ||
         b.title.toLowerCase() === q ||
-        b.memberLabel.toLowerCase().includes(q),
+        ydmBoardDisplayName(b).toLowerCase() === q ||
+        b.memberLabel.toLowerCase().includes(q) ||
+        b.title.toLowerCase().includes(q) ||
+        ydmBoardDisplayName(b).toLowerCase().includes(q),
     ) ?? null
   );
 }

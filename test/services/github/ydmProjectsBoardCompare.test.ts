@@ -82,7 +82,7 @@ describe("computeYdmBoardCompareRows", () => {
     expect(rows[0]?.inProgressCount).toBe(1);
     expect(rows[1]?.visibleCount).toBe(1);
     const text = formatYdmBoardCompareMarkdown(rows, {});
-    expect(text).toContain("Frooxius");
+    expect(text).toContain("Froox board");
     expect(text).toContain("1 shown · 1 in progress");
     expect(text).not.toContain("| --- |");
   });

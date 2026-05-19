@@ -24,6 +24,7 @@ import type { YdmProjectBoard } from "./yellowDogManProjects.js";
 import {
   formatProjectItemLine,
   formatYdmItemNumberLabel,
+  ydmBoardDisplayName,
   type YdmProjectItem,
 } from "./yellowDogManProjects.js";
 import {
@@ -76,7 +77,7 @@ function buildYdmBoardBrowseRows(
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`${YDM_PROJECTS_PICK_BOARD_PREFIX}${board.key}:${d}:${i}`)
-          .setLabel(truncateEllipsis(`Browse ${board.memberLabel}`, 80))
+          .setLabel(truncateEllipsis(`Browse ${ydmBoardDisplayName(board)}`, 80))
           .setStyle(ButtonStyle.Secondary),
       );
     }

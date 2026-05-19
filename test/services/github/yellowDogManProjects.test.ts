@@ -5,8 +5,11 @@ import {
   isDoneItem,
   isInProgressItem,
   parseYdmProjectBoardKey,
+  parseYdmProjectBoardKeyWithBoards,
   searchYdmProjectItems,
+  ydmBoardDisplayName,
   YDM_PROJECT_BOARDS,
+  type YdmProjectBoard,
   type YdmProjectItem,
 } from "../../../src/services/github/yellowDogManProjects.js";
 
@@ -102,6 +105,29 @@ describe("YDM_PROJECT_BOARDS", () => {
     expect(YDM_PROJECT_BOARDS.find((b) => b.number === 30)?.boardUrl).toContain(
       "/projects/30",
     );
+  });
+});
+
+describe("ydmBoardDisplayName", () => {
+  it("prefers GitHub project title over static member label", () => {
+    const b = { ...YDM_PROJECT_BOARDS[0], title: "Jae's Tasks" } as YdmProjectBoard;
+    expect(ydmBoardDisplayName(b)).toBe("Jae's Tasks");
+  });
+
+  it("falls back to memberLabel when title is the placeholder", () => {
+    const b = { ...YDM_PROJECT_BOARDS[0], title: "Frooxius board" } as YdmProjectBoard;
+    expect(ydmBoardDisplayName(b)).toBe("Frooxius");
+  });
+});
+
+describe("parseYdmProjectBoardKeyWithBoards", () => {
+  it("resolves board by GitHub title or substring", () => {
+    const boards = [
+      { ...YDM_PROJECT_BOARDS[0], title: "Jae's Tasks" },
+      { ...YDM_PROJECT_BOARDS[1], title: "Prime backlog" },
+    ] as YdmProjectBoard[];
+    expect(parseYdmProjectBoardKeyWithBoards(boards, "Jae's Tasks")).toBe("froox");
+    expect(parseYdmProjectBoardKeyWithBoards(boards, "jae")).toBe("froox");
   });
 });
 
