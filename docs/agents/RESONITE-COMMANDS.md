@@ -2,6 +2,8 @@
 
 Slash commands under `/resonite`. Shared logic under `src/services/resonite/`:
 
+Commands are registered for **guild install** and **user install** (DM / private channel). Enable **User Install** in the [Discord Developer Portal](https://discord.com/developers/applications) → **Installation**; see [Discord setup](DISCORD-SETUP.md). **`/resonite metrics` …** admin commands still require a **server** and **Administrator**.
+
 | Subfolder | Role |
 |-----------|------|
 | `api/` | HTTP client for public Resonite API |
@@ -13,7 +15,7 @@ Slash commands under `/resonite`. Shared logic under `src/services/resonite/`:
 
 The Resonite cloud API is read-only and public; it is a WIP and may return 404 or limited fields without auth.
 
-Optional **`visible`** on slash commands **except** **`/resonite metrics` …** (those are channel-visible only): elsewhere, omit or false → only you see the reply; **`visible: true`** → channel-visible.
+Optional **`visible`** on slash commands **except** **`/resonite metrics` …** (those are channel-visible only) and **except** commands that inherently need a guild (metrics admin): elsewhere, omit or false → only you see the reply; **`visible: true`** → channel-visible.
 
 ## Slash commands
 

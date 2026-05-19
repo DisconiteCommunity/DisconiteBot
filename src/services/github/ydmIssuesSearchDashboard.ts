@@ -111,27 +111,50 @@ export function defaultYdmIssuesSearchState(): YdmIssuesSearchState {
   };
 }
 
+type DashboardWireFit = {
+  readonly maxQuery: number;
+  readonly maxAuthor: number;
+  readonly maxLabelLen: number;
+  readonly maxLabels: number;
+};
+
+const DEFAULT_DASHBOARD_WIRE_FIT: DashboardWireFit = {
+  maxQuery: 36,
+  maxAuthor: 36,
+  maxLabelLen: 40,
+  maxLabels: 3,
+};
+
 /** Short JSON keys keep `custom_id` under Discord’s length limit; values mirror {@link YdmIssuesSearchState}. */
-function buildDashboardWireRecord(state: YdmIssuesSearchState): Record<string, unknown> {
+function buildDashboardWireRecord(
+  state: YdmIssuesSearchState,
+  fit: DashboardWireFit = DEFAULT_DASHBOARD_WIRE_FIT,
+): Record<string, unknown> {
+  const repoIndex = Math.max(0, YDM_ISSUES_REPOS.indexOf(state.repo ?? YDM_ISSUES_DEFAULT_REPO));
+  const qRaw = state.query?.trim();
+  const q =
+    qRaw && fit.maxQuery > 0 ? qRaw.slice(0, Math.min(fit.maxQuery, 36)) : undefined;
+  const aRaw = state.author?.trim();
+  const a =
+    aRaw && fit.maxAuthor > 0 ? aRaw.slice(0, Math.min(fit.maxAuthor, 36)) : undefined;
+  const labelSlice = state.labels?.slice(0, fit.maxLabels) ?? [];
+  const labels =
+    fit.maxLabels > 0 && fit.maxLabelLen > 0
+      ? labelSlice
+          .map((name) => name.trim().slice(0, Math.min(fit.maxLabelLen, 40)))
+          .filter(Boolean)
+      : [];
+
   return {
     v: 1,
     s: state.scope === "repo" ? "r" : "b",
     ...(state.board && state.board !== "all" ? { b: state.board } : {}),
-    ...(state.repo && state.repo !== YDM_ISSUES_DEFAULT_REPO
-      ? { r: state.repo }
-      : {}),
-    ...(cleanText(state.query) ? { q: cleanText(state.query) } : {}),
-    ...(cleanText(state.author) ? { a: cleanText(state.author) } : {}),
-    ...(state.labels?.length
-      ? { l: state.labels.slice(0, 3).map(cleanLabel).filter(Boolean) }
-      : {}),
+    ri: repoIndex,
+    ...(q ? { q } : {}),
+    ...(a ? { a } : {}),
+    ...(labels.length ? { l: labels } : {}),
     ...(state.labelPage ? { lp: Math.max(0, Math.floor(state.labelPage)) } : {}),
   };
-}
-
-function encodeRepoListIndexAsBase36(repo: YdmIssuesRepo | undefined): string {
-  const index = YDM_ISSUES_REPOS.indexOf(repo ?? YDM_ISSUES_DEFAULT_REPO);
-  return Math.max(0, index).toString(36);
 }
 
 function decodeRepoListIndexFromBase36(code: string): YdmIssuesRepo {
@@ -139,16 +162,22 @@ function decodeRepoListIndexFromBase36(code: string): YdmIssuesRepo {
   return YDM_ISSUES_REPOS[index] ?? YDM_ISSUES_DEFAULT_REPO;
 }
 
+function encodeRepoListIndexAsBase36(repo: YdmIssuesRepo | undefined): string {
+  const index = YDM_ISSUES_REPOS.indexOf(repo ?? YDM_ISSUES_DEFAULT_REPO);
+  return Math.max(0, index).toString(36);
+}
+
+/** Legacy compact wire: stays short for typical filters; superseded by JSON when over the Discord limit. */
 function encodeCompactState(state: YdmIssuesSearchState): string {
   const wireFields = buildDashboardWireRecord(state);
   const joinedLabelNamesForWire = Array.isArray(wireFields.l)
-    ? wireFields.l.join("\u001f")
+    ? (wireFields.l as string[]).join("\u001f")
     : "";
   return [
     wireFields.s,
     typeof wireFields.b === "string" ? wireFields.b : "",
     encodeRepoListIndexAsBase36(state.repo),
-    typeof wireFields.lp === "number" ? wireFields.lp.toString(36) : "0",
+    typeof wireFields.lp === "number" ? (wireFields.lp as number).toString(36) : "0",
     encodeUtf8ToBase64Url(typeof wireFields.q === "string" ? wireFields.q : ""),
     encodeUtf8ToBase64Url(typeof wireFields.a === "string" ? wireFields.a : ""),
     encodeUtf8ToBase64Url(joinedLabelNamesForWire),
@@ -163,7 +192,58 @@ export function encodeYdmIssuesSearchDashboardId(
     action === "label_page_prev" || action === "label_page_next"
       ? state
       : { ...state, labelPage: 0 };
-  return `${YDM_ISSUES_SEARCH_DASHBOARD_PREFIX}${action}:${encodeCompactState(stateForAction)}`;
+  const prefix = `${YDM_ISSUES_SEARCH_DASHBOARD_PREFIX}${action}:`;
+  const maxB64Length = 100 - prefix.length;
+
+  const dotPayload = encodeCompactState(stateForAction);
+  if (dotPayload.length <= maxB64Length) {
+    return `${prefix}${dotPayload}`;
+  }
+
+  let fit: DashboardWireFit = { ...DEFAULT_DASHBOARD_WIRE_FIT };
+  let guard = 0;
+  while (guard < 80) {
+    guard += 1;
+    const wire = buildDashboardWireRecord(stateForAction, fit);
+    const b64 = encodeUtf8ToBase64Url(JSON.stringify(wire));
+    if (b64.length <= maxB64Length) {
+      return `${prefix}${b64}`;
+    }
+    if (fit.maxLabelLen > 12) {
+      fit = { ...fit, maxLabelLen: fit.maxLabelLen - 6 };
+      continue;
+    }
+    if (fit.maxLabels > 0) {
+      fit = { ...fit, maxLabels: fit.maxLabels - 1 };
+      continue;
+    }
+    if (fit.maxQuery > 0) {
+      fit = { ...fit, maxQuery: Math.max(0, fit.maxQuery - 8) };
+      continue;
+    }
+    if (fit.maxAuthor > 0) {
+      fit = { ...fit, maxAuthor: Math.max(0, fit.maxAuthor - 8) };
+      continue;
+    }
+    const minimal = {
+      v: 1,
+      s: stateForAction.scope === "repo" ? "r" : "b",
+      ...(stateForAction.board && stateForAction.board !== "all"
+        ? { b: stateForAction.board }
+        : {}),
+      ri: Math.max(0, YDM_ISSUES_REPOS.indexOf(stateForAction.repo ?? YDM_ISSUES_DEFAULT_REPO)),
+      ...(stateForAction.labelPage
+        ? { lp: Math.max(0, Math.floor(stateForAction.labelPage)) }
+        : {}),
+    };
+    return `${prefix}${encodeUtf8ToBase64Url(JSON.stringify(minimal))}`;
+  }
+  const minimal = {
+    v: 1,
+    s: "b" as const,
+    ri: 0,
+  };
+  return `${prefix}${encodeUtf8ToBase64Url(JSON.stringify(minimal))}`;
 }
 
 export function parseYdmIssuesSearchDashboardId(
@@ -200,6 +280,7 @@ export function parseYdmIssuesSearchDashboardId(
             s?: string;
             b?: string;
             r?: string;
+            ri?: number;
             q?: string;
             a?: string;
             l?: string[];
@@ -217,9 +298,13 @@ export function parseYdmIssuesSearchDashboardId(
         ? (decodedWireFields.b as YdmProjectKey)
         : "all";
     const resolvedRepo =
-      decodedWireFields.r && isYdmIssuesRepo(decodedWireFields.r)
-        ? decodedWireFields.r
-        : YDM_ISSUES_DEFAULT_REPO;
+      typeof decodedWireFields.ri === "number" &&
+      decodedWireFields.ri >= 0 &&
+      decodedWireFields.ri < YDM_ISSUES_REPOS.length
+        ? YDM_ISSUES_REPOS[decodedWireFields.ri]
+        : decodedWireFields.r && isYdmIssuesRepo(decodedWireFields.r)
+          ? decodedWireFields.r
+          : YDM_ISSUES_DEFAULT_REPO;
     return {
       action,
       state: {

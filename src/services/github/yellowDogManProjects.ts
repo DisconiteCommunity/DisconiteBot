@@ -2,13 +2,13 @@ import { githubGraphql } from "./githubGraphql.js";
 
 export const YDM_ORG_LOGIN = "Yellow-Dog-Man";
 
-/** Org project numbers linked from team showcase URLs (titles resolved via API). */
+/** GitHub org Project v2 `number` from `/orgs/Yellow-Dog-Man/projects/<n>` (stable; verify titles if boards look wrong). */
 export const YDM_PROJECT_BOARDS = [
   {
     key: "froox",
-    number: 47,
+    number: 18,
     memberLabel: "Frooxius",
-    boardUrl: `https://github.com/orgs/${YDM_ORG_LOGIN}/projects/47`,
+    boardUrl: `https://github.com/orgs/${YDM_ORG_LOGIN}/projects/18`,
   },
   {
     key: "prime",
@@ -18,9 +18,9 @@ export const YDM_PROJECT_BOARDS = [
   },
   {
     key: "j4",
-    number: 18,
+    number: 47,
     memberLabel: "J4",
-    boardUrl: `https://github.com/orgs/${YDM_ORG_LOGIN}/projects/18`,
+    boardUrl: `https://github.com/orgs/${YDM_ORG_LOGIN}/projects/47`,
   },
   {
     key: "gawdl3y",

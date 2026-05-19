@@ -56,6 +56,7 @@ import {
   slashEphemeralReplyFlags,
   slashVisibleOption,
 } from "../../utility/discord/interactionVisibility.js";
+import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
 
 type TranslatePickState = {
   contexts: string[];
@@ -329,6 +330,7 @@ async function forumQueryAutocompleteHandler(
   name: "disconite",
   description:
     "Disconite Weblate translations and forum search (disconite.net).",
+  ...slashCommandUserInstallScope,
 })
 @SlashGroup({
   name: "search",

@@ -23,6 +23,7 @@ import {
   METRICS_SESSIONS_GOTO_MODAL_ID,
   METRICS_SESSIONS_PAGE_PATTERN,
 } from "../../utility/discord/discordInteractionIds.js";
+import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
 import { loggers } from "../../utility/logging/logger.js";
 
 @Discord()
@@ -30,6 +31,7 @@ import { loggers } from "../../utility/logging/logger.js";
   name: "resonite",
   description:
     "Resonite wiki, accounts, records, and team socials (public APIs + roster).",
+  ...slashCommandUserInstallScope,
 })
 export class ResoniteMetricsSessionsHandlers {
   @ButtonComponent({ id: METRICS_SESSIONS_PAGE_PATTERN })

@@ -106,28 +106,39 @@ describe("YDM_PROJECT_BOARDS", () => {
       "/projects/30",
     );
   });
+
+  it("maps froox and j4 to the correct GitHub org project numbers", () => {
+    expect(YDM_PROJECT_BOARDS.find((b) => b.key === "froox")?.number).toBe(18);
+    expect(YDM_PROJECT_BOARDS.find((b) => b.key === "j4")?.number).toBe(47);
+  });
 });
 
 describe("ydmBoardDisplayName", () => {
   it("prefers GitHub project title over static member label", () => {
-    const b = { ...YDM_PROJECT_BOARDS[0], title: "Jae's Tasks" } as YdmProjectBoard;
-    expect(ydmBoardDisplayName(b)).toBe("Jae's Tasks");
+    const froox = YDM_PROJECT_BOARDS.find((b) => b.key === "froox")!;
+    const b = { ...froox, title: "Froox's fun issues" } as YdmProjectBoard;
+    expect(ydmBoardDisplayName(b)).toBe("Froox's fun issues");
   });
 
   it("falls back to memberLabel when title is the placeholder", () => {
-    const b = { ...YDM_PROJECT_BOARDS[0], title: "Frooxius board" } as YdmProjectBoard;
+    const froox = YDM_PROJECT_BOARDS.find((b) => b.key === "froox")!;
+    const b = { ...froox, title: "Frooxius board" } as YdmProjectBoard;
     expect(ydmBoardDisplayName(b)).toBe("Frooxius");
   });
 });
 
 describe("parseYdmProjectBoardKeyWithBoards", () => {
   it("resolves board by GitHub title or substring", () => {
+    const froox = YDM_PROJECT_BOARDS.find((b) => b.key === "froox")!;
+    const prime = YDM_PROJECT_BOARDS.find((b) => b.key === "prime")!;
+    const j4 = YDM_PROJECT_BOARDS.find((b) => b.key === "j4")!;
     const boards = [
-      { ...YDM_PROJECT_BOARDS[0], title: "Jae's Tasks" },
-      { ...YDM_PROJECT_BOARDS[1], title: "Prime backlog" },
+      { ...froox, title: "Froox's fun issues" },
+      { ...prime, title: "Prime backlog" },
+      { ...j4, title: "Jae's Tasks" },
     ] as YdmProjectBoard[];
-    expect(parseYdmProjectBoardKeyWithBoards(boards, "Jae's Tasks")).toBe("froox");
-    expect(parseYdmProjectBoardKeyWithBoards(boards, "jae")).toBe("froox");
+    expect(parseYdmProjectBoardKeyWithBoards(boards, "Jae's Tasks")).toBe("j4");
+    expect(parseYdmProjectBoardKeyWithBoards(boards, "jae")).toBe("j4");
   });
 });
 

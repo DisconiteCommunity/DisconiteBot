@@ -67,16 +67,14 @@ export const YDM_PROJECTS_PAGE_PREFIX = "ydmp:";
 export const YDM_PROJECTS_PAGE_PATTERN = /^ydmp:[A-Za-z0-9_-]+$/;
 
 /** YDM GitHub projects: select one issue from a paginated list/search page. */
-export const YDM_PROJECTS_ITEM_SELECT_PREFIX = "ydm_projects_item_sel:";
+export const YDM_PROJECTS_ITEM_SELECT_PREFIX = "yi:";
 
-export const YDM_PROJECTS_ITEM_SELECT_PATTERN =
-  /^ydm_projects_item_sel:[A-Za-z0-9_-]+$/;
+export const YDM_PROJECTS_ITEM_SELECT_PATTERN = /^yi:[A-Za-z0-9_-]+$/;
 
 /** YDM GitHub projects: select Status column filter on a board/list page. */
-export const YDM_PROJECTS_STATUS_SELECT_PREFIX = "ydm_projects_status_sel:";
+export const YDM_PROJECTS_STATUS_SELECT_PREFIX = "ys:";
 
-export const YDM_PROJECTS_STATUS_SELECT_PATTERN =
-  /^ydm_projects_status_sel:[A-Za-z0-9_-]+$/;
+export const YDM_PROJECTS_STATUS_SELECT_PATTERN = /^ys:[A-Za-z0-9_-]+$/;
 
 /** Combined issue picker on board overview (`ydm_projects_sel:picker:0:0`) */
 export const YDM_PROJECTS_BOARD_SELECT_PATTERN =

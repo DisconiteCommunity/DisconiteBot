@@ -2,6 +2,8 @@
 
 Slash commands under `/disconite`. Shared logic: `src/services/disconite/weblate/`, `src/services/disconite/discourse/`.
 
+Commands are registered for **guild install** and **user install** (DM / private channel). Enable **User Install** in the [Discord Developer Portal](https://discord.com/developers/applications) → **Installation**; see [Discord setup](DISCORD-SETUP.md).
+
 Optional env (defaults in code): `WEBLATE_BASE_URL`, `WEBLATE_API_TOKEN`, `DISCONITE_FORUM_BASE_URL`. See [Environment](ENVIRONMENT.md) and `.env.example`.
 
 Optional **`visible`** on most slash commands: omit or false → only you see the reply; **`visible: true`** → channel-visible.

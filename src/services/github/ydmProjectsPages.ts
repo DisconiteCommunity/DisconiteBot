@@ -8,6 +8,12 @@ import {
 /** Discord string selects allow at most 25 options; match page size to one menu per page. */
 export const YDM_PROJECTS_PAGE_SIZE = 25;
 
+/**
+ * Max base64url payload length after the `ydmp:` prefix so the full string fits Discord’s
+ * 100-char `custom_id` limit (used by page buttons and by `yi:` / `ys:` string selects).
+ */
+export const YDM_PROJECTS_PAGE_ID_B64_MAX = 95;
+
 /** Status filter menu: show all Kanban columns. */
 export const YDM_PROJECTS_STATUS_FILTER_ALL = "_all";
 
@@ -95,22 +101,75 @@ function fromBase64Url(encoded: string): string {
   return Buffer.from(b64, "base64").toString("utf8");
 }
 
+/** Wire JSON uses short keys so `ydmp:` + base64 stays within Discord’s 100-char limit. */
+type YdmProjectsPageWire = {
+  v: 1;
+  /** `"l"` = list, `"s"` = search */
+  m: "l" | "s";
+  b: YdmProjectsBoardParam;
+  p: number;
+  d?: 1;
+  i?: 1;
+  q?: string;
+  /** Status column filter (short for `statusFilter`) */
+  f?: string;
+};
+
+function wireToBase64(wire: YdmProjectsPageWire): string {
+  return toBase64Url(JSON.stringify(wire));
+}
+
 export function encodeYdmProjectsPageId(state: YdmProjectsPageState): string {
-  const statusFilter =
+  let q =
+    state.m === "search" && typeof state.q === "string" && state.q.trim()
+      ? state.q.trim().slice(0, 48)
+      : undefined;
+  let f =
     typeof state.statusFilter === "string" && state.statusFilter.trim()
       ? state.statusFilter.trim().slice(0, 100)
       : undefined;
-  const compact: YdmProjectsPageState = {
+
+  const baseWire = (): YdmProjectsPageWire => ({
     v: 1,
-    m: state.m,
+    m: state.m === "list" ? "l" : "s",
     b: state.b,
     p: state.p,
-    ...(state.d ? { d: 1 } : {}),
-    ...(state.i ? { i: 1 } : {}),
-    ...(state.q ? { q: state.q.slice(0, 48) } : {}),
-    ...(statusFilter ? { statusFilter } : {}),
-  };
-  return `ydmp:${toBase64Url(JSON.stringify(compact))}`;
+    ...(state.d ? { d: 1 as const } : {}),
+    ...(state.i ? { i: 1 as const } : {}),
+    ...(q ? { q } : {}),
+    ...(f ? { f } : {}),
+  });
+
+  for (;;) {
+    const b64 = wireToBase64(baseWire());
+    if (b64.length <= YDM_PROJECTS_PAGE_ID_B64_MAX) {
+      return `ydmp:${b64}`;
+    }
+    if (q && q.length > 0) {
+      q = q.slice(0, Math.max(0, q.length - 8));
+      continue;
+    }
+    q = undefined;
+    if (f && f.length > 0) {
+      f = f.slice(0, Math.max(0, f.length - 8));
+      continue;
+    }
+    f = undefined;
+    const minimal = wireToBase64({
+      v: 1,
+      m: state.m === "list" ? "l" : "s",
+      b: state.b,
+      p: state.p,
+      ...(state.d ? { d: 1 as const } : {}),
+      ...(state.i ? { i: 1 as const } : {}),
+    });
+    if (minimal.length > YDM_PROJECTS_PAGE_ID_B64_MAX) {
+      throw new Error(
+        "YDM projects page state cannot be encoded within Discord custom_id limits",
+      );
+    }
+    return `ydmp:${minimal}`;
+  }
 }
 
 export function parseYdmProjectsPageId(customId: string): YdmProjectsPageState | null {
@@ -118,26 +177,46 @@ export function parseYdmProjectsPageId(customId: string): YdmProjectsPageState |
     return null;
   }
   try {
-    const raw = JSON.parse(fromBase64Url(customId.slice(5))) as YdmProjectsPageState;
-    if (raw.v !== 1 || (raw.m !== "list" && raw.m !== "search")) {
+    const raw = JSON.parse(fromBase64Url(customId.slice(5))) as
+      | YdmProjectsPageState
+      | YdmProjectsPageWire
+      | Record<string, unknown>;
+    if (raw.v !== 1) {
       return null;
     }
-    if (!isYdmProjectsBoardParam(raw.b)) {
+    const modeRaw = raw.m;
+    const m =
+      modeRaw === "list" || modeRaw === "l"
+        ? "list"
+        : modeRaw === "search" || modeRaw === "s"
+          ? "search"
+          : null;
+    if (!m) {
       return null;
     }
-    if (!Number.isFinite(raw.p)) {
+    const b = (raw as { b?: unknown }).b;
+    if (typeof b !== "string" || !isYdmProjectsBoardParam(b)) {
       return null;
     }
-    const statusRaw =
-      typeof raw.statusFilter === "string" ? raw.statusFilter.trim() : "";
+    const pRaw = (raw as { p?: unknown }).p;
+    if (!Number.isFinite(pRaw)) {
+      return null;
+    }
+    const wire = raw as { q?: unknown; f?: unknown; statusFilter?: unknown };
+    const q =
+      typeof wire.q === "string" && wire.q.length > 0 ? wire.q : undefined;
+    const statusFromF = typeof wire.f === "string" ? wire.f.trim() : "";
+    const statusLegacy =
+      typeof wire.statusFilter === "string" ? wire.statusFilter.trim() : "";
+    const statusRaw = (statusFromF || statusLegacy).trim();
     return {
       v: 1,
-      m: raw.m,
-      b: raw.b,
-      p: Math.max(0, Math.floor(raw.p)),
+      m,
+      b,
+      p: Math.max(0, Math.floor(Number(pRaw))),
       ...(raw.d ? { d: 1 } : {}),
       ...(raw.i ? { i: 1 } : {}),
-      ...(raw.q ? { q: raw.q } : {}),
+      ...(q ? { q } : {}),
       ...(statusRaw ? { statusFilter: statusRaw.slice(0, 100) } : {}),
     };
   } catch {

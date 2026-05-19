@@ -33,6 +33,7 @@ import {
   slashEphemeralReplyFlags,
   slashVisibleOption,
 } from "../../utility/discord/interactionVisibility.js";
+import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
 import { replyWithYdmBoardPicker } from "./resoniteProjectsHandlers.js";
 
 async function boardAutocompleteChoices(): Promise<{ name: string; value: string }[]> {
@@ -104,6 +105,7 @@ async function parseListBoardInput(
   name: "resonite",
   description:
     "Resonite wiki, accounts, records, and team socials (public APIs + roster).",
+  ...slashCommandUserInstallScope,
 })
 @SlashGroup({
   name: "projects",

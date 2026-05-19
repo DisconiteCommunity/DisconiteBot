@@ -54,6 +54,51 @@ export type YdmIssueRepoResultsState = YdmIssueRepoSearchInput & {
   readonly p: number;
 };
 
+type RepoResultsWireFit = {
+  readonly maxQuery: number;
+  readonly maxAuthor: number;
+  readonly maxLabelLen: number;
+  readonly maxLabels: number;
+};
+
+const DEFAULT_REPO_RESULTS_WIRE_FIT: RepoResultsWireFit = {
+  maxQuery: 48,
+  maxAuthor: 48,
+  maxLabelLen: 40,
+  maxLabels: 3,
+};
+
+function buildRepoResultsWirePayload(
+  state: YdmIssueRepoResultsState,
+  fit: RepoResultsWireFit,
+): Record<string, unknown> {
+  /** Signed page index in the wire payload so e.g. `page - 1` on page 0 stays distinct from the current page in `custom_id`s. */
+  const signedPageIndexForWire = Number.isFinite(state.p) ? Math.floor(state.p) : 0;
+  const ri = Math.max(0, YDM_ISSUES_REPOS.indexOf(state.repo));
+  const qRaw = state.query?.trim();
+  const q =
+    qRaw && fit.maxQuery > 0 ? qRaw.slice(0, Math.min(fit.maxQuery, 48)) : undefined;
+  const aRaw = state.author?.trim();
+  const a =
+    aRaw && fit.maxAuthor > 0 ? aRaw.slice(0, Math.min(fit.maxAuthor, 48)) : undefined;
+  const labelSlice = state.labels?.slice(0, fit.maxLabels) ?? [];
+  const labels =
+    fit.maxLabels > 0 && fit.maxLabelLen > 0
+      ? labelSlice
+          .map((name) => name.trim().slice(0, Math.min(fit.maxLabelLen, 40)))
+          .filter(Boolean)
+      : [];
+
+  return {
+    v: 1,
+    p: signedPageIndexForWire,
+    ri,
+    ...(q ? { q } : {}),
+    ...(a ? { a } : {}),
+    ...(labels.length ? { l: labels } : {}),
+  };
+}
+
 function encodeUtf8ToBase64Url(text: string): string {
   return Buffer.from(text, "utf8").toString("base64url");
 }
@@ -242,21 +287,42 @@ export async function searchYdmRepositoryIssues(
 export function encodeYdmIssueRepoResultsPageId(
   state: YdmIssueRepoResultsState,
 ): string {
-  /** Signed page index in the wire payload so e.g. `page - 1` on page 0 stays distinct from the current page in `custom_id`s. */
-  const signedPageIndexForWire = Number.isFinite(state.p) ? Math.floor(state.p) : 0;
-  const pageStateWirePayload = {
-    v: 1,
-    p: signedPageIndexForWire,
-    r: state.repo,
-    ...(cleanSearchTerm(state.query) ? { q: cleanSearchTerm(state.query) } : {}),
-    ...(cleanSearchTerm(state.author) ? { a: cleanSearchTerm(state.author) } : {}),
-    ...(state.labels?.length
-      ? { l: state.labels.slice(0, 3).map(cleanLabel).filter(Boolean) }
-      : {}),
-  };
-  return `${YDM_ISSUES_REPO_RESULTS_PREFIX}${encodeUtf8ToBase64Url(
-    JSON.stringify(pageStateWirePayload),
-  )}`;
+  const prefix = YDM_ISSUES_REPO_RESULTS_PREFIX;
+  const maxB64Length = 100 - prefix.length;
+  let fit: RepoResultsWireFit = { ...DEFAULT_REPO_RESULTS_WIRE_FIT };
+  let guard = 0;
+  while (guard < 100) {
+    guard += 1;
+    const pageStateWirePayload = buildRepoResultsWirePayload(state, fit);
+    const b64 = encodeUtf8ToBase64Url(JSON.stringify(pageStateWirePayload));
+    if (b64.length <= maxB64Length) {
+      return `${prefix}${b64}`;
+    }
+    if (fit.maxLabelLen > 8) {
+      fit = { ...fit, maxLabelLen: fit.maxLabelLen - 4 };
+      continue;
+    }
+    if (fit.maxLabels > 0) {
+      fit = { ...fit, maxLabels: fit.maxLabels - 1 };
+      continue;
+    }
+    if (fit.maxQuery > 0) {
+      fit = { ...fit, maxQuery: Math.max(0, fit.maxQuery - 8) };
+      continue;
+    }
+    if (fit.maxAuthor > 0) {
+      fit = { ...fit, maxAuthor: Math.max(0, fit.maxAuthor - 8) };
+      continue;
+    }
+    const signedPageIndexForWire = Number.isFinite(state.p) ? Math.floor(state.p) : 0;
+    const minimal = {
+      v: 1,
+      p: signedPageIndexForWire,
+      ri: Math.max(0, YDM_ISSUES_REPOS.indexOf(state.repo)),
+    };
+    return `${prefix}${encodeUtf8ToBase64Url(JSON.stringify(minimal))}`;
+  }
+  return `${prefix}${encodeUtf8ToBase64Url(JSON.stringify({ v: 1, p: 0, ri: 0 }))}`;
 }
 
 export function parseYdmIssueRepoResultsPageId(
@@ -272,11 +338,23 @@ export function parseYdmIssueRepoResultsPageId(
       v?: number;
       p?: number;
       r?: string;
+      ri?: number;
       q?: string;
       a?: string;
       l?: string[];
     };
-    if (parsedWirePayload.v !== 1 || !parsedWirePayload.r || !isYdmIssuesRepo(parsedWirePayload.r)) {
+    if (parsedWirePayload.v !== 1) {
+      return null;
+    }
+    const repo =
+      typeof parsedWirePayload.ri === "number" &&
+      parsedWirePayload.ri >= 0 &&
+      parsedWirePayload.ri < YDM_ISSUES_REPOS.length
+        ? YDM_ISSUES_REPOS[parsedWirePayload.ri]
+        : parsedWirePayload.r && isYdmIssuesRepo(parsedWirePayload.r)
+          ? parsedWirePayload.r
+          : null;
+    if (!repo) {
       return null;
     }
     return {
@@ -284,7 +362,7 @@ export function parseYdmIssueRepoResultsPageId(
       p: Number.isFinite(parsedWirePayload.p)
         ? Math.max(0, Math.floor(parsedWirePayload.p ?? 0))
         : 0,
-      repo: parsedWirePayload.r,
+      repo,
       ...(cleanSearchTerm(parsedWirePayload.q)
         ? { query: cleanSearchTerm(parsedWirePayload.q) }
         : {}),

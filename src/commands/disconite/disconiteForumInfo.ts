@@ -12,12 +12,14 @@ import {
   slashEphemeralReplyFlags,
   slashVisibleOption,
 } from "../../utility/discord/interactionVisibility.js";
+import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
 
 @Discord()
 @SlashGroup({
   name: "disconite",
   description:
     "Disconite Weblate translations and forum search (disconite.net).",
+  ...slashCommandUserInstallScope,
 })
 @SlashGroup("disconite")
 export class DisconiteForumInfoCommand {

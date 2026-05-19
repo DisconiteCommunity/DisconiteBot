@@ -49,6 +49,7 @@ import {
   YDM_ISSUES_SEARCH_DASHBOARD_PATTERN,
   YDM_ISSUES_SEARCH_RESET_BUTTON_ID,
 } from "../../utility/discord/discordInteractionIds.js";
+import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
 import { loggers } from "../../utility/logging/logger.js";
 
 const modalStateByUser = new Map<
@@ -155,6 +156,7 @@ async function renderDashboardAfterUpdate(
   name: "resonite",
   description:
     "Resonite wiki, accounts, records, and team socials (public APIs + roster).",
+  ...slashCommandUserInstallScope,
 })
 export class ResoniteSearchIssuesHandlers {
   @ButtonComponent({ id: YDM_ISSUES_SEARCH_RESET_BUTTON_ID })

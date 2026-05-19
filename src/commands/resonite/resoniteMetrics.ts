@@ -16,6 +16,7 @@ import {
   METRICS_UNREGISTER_CANCEL_BUTTON_ID,
   METRICS_UNREGISTER_CONFIRM_BUTTON_ID,
 } from "../../utility/discord/discordInteractionIds.js";
+import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
 import { loggers } from "../../utility/logging/logger.js";
 
 function requireGuildAdminContext(
@@ -45,6 +46,7 @@ function requireGuildAdminContext(
   name: "resonite",
   description:
     "Resonite wiki, accounts, records, and team socials (public APIs + roster).",
+  ...slashCommandUserInstallScope,
 })
 @SlashGroup({
   name: "metrics",

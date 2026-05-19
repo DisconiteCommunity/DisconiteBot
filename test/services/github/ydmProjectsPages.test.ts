@@ -5,10 +5,15 @@ import {
   filterYdmProjectItemsByStatusColumn,
   parseYdmProjectItemId,
   parseYdmProjectsPageId,
+  YDM_PROJECTS_PAGE_ID_B64_MAX,
   YDM_PROJECTS_STATUS_FILTER_NONE,
   ydmProjectsPageCount,
   ydmProjectsPageSlice,
 } from "../../../src/services/github/ydmProjectsPages.js";
+import {
+  YDM_PROJECTS_ITEM_SELECT_PREFIX,
+  YDM_PROJECTS_STATUS_SELECT_PREFIX,
+} from "../../../src/utility/discord/discordInteractionIds.js";
 import type { YdmProjectItem } from "../../../src/services/github/yellowDogManProjects.js";
 
 function item(title: string, number: number): YdmProjectItem {
@@ -118,6 +123,31 @@ describe("encodeYdmProjectsPageId", () => {
       p: 0,
       statusFilter: "In Progress",
     });
+  });
+
+  it("fits Discord custom_id limits even with long search + status filter", () => {
+    const id = encodeYdmProjectsPageId({
+      v: 1,
+      m: "search",
+      b: "all",
+      p: 0,
+      d: 1,
+      i: 1,
+      q: "q".repeat(48),
+      statusFilter: "s".repeat(100),
+    });
+    const b64 = id.slice("ydmp:".length);
+    expect(b64.length).toBeLessThanOrEqual(YDM_PROJECTS_PAGE_ID_B64_MAX);
+    expect(
+      `${YDM_PROJECTS_STATUS_SELECT_PREFIX}${b64}`.length,
+    ).toBeLessThanOrEqual(100);
+    expect(`${YDM_PROJECTS_ITEM_SELECT_PREFIX}${b64}`.length).toBeLessThanOrEqual(
+      100,
+    );
+    const parsed = parseYdmProjectsPageId(id);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.m).toBe("search");
+    expect(parsed?.b).toBe("all");
   });
 });
 

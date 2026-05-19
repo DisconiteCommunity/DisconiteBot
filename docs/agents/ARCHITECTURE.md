@@ -12,7 +12,7 @@ Entry point is `src/main.ts`. Dependencies and versions are in `package.json`.
 6. **Discord login** — `bot.login(BOT_TOKEN)`.
 7. **HTTP** — Koa listens on `PORT`; routes from `createApiRouter()` in the api layer.
 
-On **`clientReady`**, slash commands publish via `bot.initApplicationCommands()`. The Resonite metrics poller starts here unless `ENV=test`.
+On **`clientReady`**, slash commands publish via `bot.initApplicationCommands()`. Root command groups spread `slashCommandUserInstallScope` (`src/config/discordSlashInstall.ts`) so commands register for **guild** and **user** installs (guild, bot DM, and private-channel contexts). The Resonite metrics poller starts here unless `ENV=test`.
 
 **Interactions:** `interactionCreate` → `bot.executeInteraction(interaction)` with ephemeral error fallback.
 

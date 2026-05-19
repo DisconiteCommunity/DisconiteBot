@@ -24,6 +24,7 @@ import {
   slashEphemeralReplyFlags,
   slashVisibleOption,
 } from "../../utility/discord/interactionVisibility.js";
+import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
 import { truncateEllipsis } from "../../utility/text/truncate.js";
 import { fetchPlatformPreview } from "../../services/resonite/team/platformPreview.js";
 import {
@@ -140,6 +141,7 @@ async function replyWithPlatformPreview(
   name: "resonite",
   description:
     "Resonite wiki, cloud accounts, record/session links, and team socials.",
+  ...slashCommandUserInstallScope,
 })
 @SlashGroup("resonite")
 export class ResoniteSocialsCommands {

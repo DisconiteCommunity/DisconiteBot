@@ -69,6 +69,7 @@ import {
   slashEphemeralReplyFlags,
   slashVisibleOption,
 } from "../../utility/discord/interactionVisibility.js";
+import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
 
 const WIKI_PREVIEW_CHARACTER_MIN = 500;
 const WIKI_PREVIEW_CHARACTER_MAX = 1500;
@@ -300,6 +301,7 @@ async function accountUsernameAutocomplete(
   name: "resonite",
   description:
     "Resonite wiki, accounts, records, and team socials (public APIs + roster).",
+  ...slashCommandUserInstallScope,
 })
 @SlashGroup({
   name: "search",

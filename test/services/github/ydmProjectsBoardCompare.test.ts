@@ -11,7 +11,7 @@ import type { YdmProjectBoard, YdmProjectItem } from "../../../src/services/gith
 const boards: YdmProjectBoard[] = [
   {
     key: "froox",
-    number: 47,
+    number: 18,
     memberLabel: "Frooxius",
     boardUrl: "https://example.com/f",
     title: "Froox board",

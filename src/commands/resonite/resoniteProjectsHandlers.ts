@@ -43,6 +43,7 @@ import {
   YDM_PROJECTS_STATUS_SELECT_PATTERN,
   YDM_PROJECTS_STATUS_SELECT_PREFIX,
 } from "../../utility/discord/discordInteractionIds.js";
+import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
 import { loggers } from "../../utility/logging/logger.js";
 import { truncateEllipsis } from "../../utility/text/truncate.js";
 
@@ -70,6 +71,7 @@ async function replyWithYdmItemEmbed(
   name: "resonite",
   description:
     "Resonite wiki, accounts, records, and team socials (public APIs + roster).",
+  ...slashCommandUserInstallScope,
 })
 export class ResoniteProjectsHandlers {
   @SelectMenuComponent({ id: YDM_PROJECTS_BOARD_SELECT_PATTERN })

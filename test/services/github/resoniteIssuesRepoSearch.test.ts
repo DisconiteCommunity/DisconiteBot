@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { YDM_ISSUES_REPO_RESULTS_PREFIX } from "../../../src/utility/discord/discordInteractionIds.js";
 import {
   buildYdmIssuesRepoSearchQuery,
   encodeYdmIssueRepoResultsPageId,
@@ -76,6 +77,35 @@ describe("YDM issues repo results state", () => {
       p: 0,
       repo: "Yellow-Dog-Man/Resonite-Issues",
       query: "x",
+    });
+  });
+
+  it("keeps pagination custom ids within 100 chars for heavy search state", () => {
+    const id = encodeYdmIssueRepoResultsPageId({
+      v: 1,
+      p: 4,
+      repo: "Yellow-Dog-Man/Resonite-Issues",
+      query: "q".repeat(200),
+      author: "u".repeat(200),
+      labels: ["L".repeat(40), "M".repeat(40), "N".repeat(40)],
+    });
+    expect(id.length).toBeLessThanOrEqual(100);
+    const parsed = parseYdmIssueRepoResultsPageId(id);
+    expect(parsed?.v).toBe(1);
+    expect(parsed?.repo).toBe("Yellow-Dog-Man/Resonite-Issues");
+    expect(parsed?.p).toBe(4);
+  });
+
+  it("parses legacy wire payloads that use full repo name in r", () => {
+    const legacy = `${YDM_ISSUES_REPO_RESULTS_PREFIX}${Buffer.from(
+      JSON.stringify({ v: 1, p: 2, r: "Yellow-Dog-Man/Locale", q: "locale" }),
+      "utf8",
+    ).toString("base64url")}`;
+    expect(parseYdmIssueRepoResultsPageId(legacy)).toEqual({
+      v: 1,
+      p: 2,
+      repo: "Yellow-Dog-Man/Locale",
+      query: "locale",
     });
   });
 });
