@@ -29,13 +29,19 @@ import {
   parseYdmProjectItemId,
   parseYdmProjectsBoardParam,
   parseYdmProjectsPageId,
+  YDM_PROJECTS_STATUS_FILTER_ALL,
   type YdmProjectsPageState,
 } from "../../services/github/ydmProjectsPages.js";
 import {
   YDM_PROJECTS_BOARD_SELECT_PATTERN,
+  YDM_PROJECTS_ITEM_SELECT_PATTERN,
+  YDM_PROJECTS_ITEM_SELECT_PREFIX,
   YDM_PROJECTS_ITEM_PATTERN,
   YDM_PROJECTS_PAGE_PATTERN,
+  YDM_PROJECTS_PAGE_PREFIX,
   YDM_PROJECTS_PICK_BOARD_PATTERN,
+  YDM_PROJECTS_STATUS_SELECT_PATTERN,
+  YDM_PROJECTS_STATUS_SELECT_PREFIX,
 } from "../../utility/discord/discordInteractionIds.js";
 import { loggers } from "../../utility/logging/logger.js";
 import { truncateEllipsis } from "../../utility/text/truncate.js";
@@ -52,7 +58,11 @@ async function replyWithYdmItemEmbed(
     return;
   }
 
-  await interaction.reply(ydmProjectItemReplyPayload(item));
+  const parentEphemeral =
+    interaction.message?.flags.has(MessageFlags.Ephemeral) ?? true;
+  await interaction.reply(
+    ydmProjectItemReplyPayload(item, { ephemeral: parentEphemeral }),
+  );
 }
 
 @Discord()
@@ -140,6 +150,94 @@ export class ResoniteProjectsHandlers {
         content: "Could not load that project item.",
         flags: MessageFlags.Ephemeral,
       });
+    }
+  }
+
+  @SelectMenuComponent({ id: YDM_PROJECTS_ITEM_SELECT_PATTERN })
+  async onListIssueSelect(
+    interaction: StringSelectMenuInteraction,
+  ): Promise<void> {
+    if (!isGitHubConfigured()) {
+      await interaction.reply({
+        content: missingGitHubTokenMessage(),
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const state = parseYdmProjectsPageId(
+      `${YDM_PROJECTS_PAGE_PREFIX}${interaction.customId.slice(
+        YDM_PROJECTS_ITEM_SELECT_PREFIX.length,
+      )}`,
+    );
+    const selected = parseYdmIssueSelectValue(interaction.values[0] ?? "");
+    if (!state || !selected) {
+      return;
+    }
+
+    try {
+      const item = await resolveYdmProjectItemByRef({
+        boardKey: selected.boardKey,
+        number: selected.number,
+        repo: selected.repo,
+        includeDone: state.d === 1,
+        inProgressOnly: state.i === 1,
+      });
+      await replyWithYdmItemEmbed(interaction, item);
+    } catch (err) {
+      loggers.resonite.error("projects list select failed", err, {
+        state,
+        selected,
+      });
+      await interaction.reply({
+        content: "Could not load that project item.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+  }
+
+  @SelectMenuComponent({ id: YDM_PROJECTS_STATUS_SELECT_PATTERN })
+  async onListStatusFilterSelect(
+    interaction: StringSelectMenuInteraction,
+  ): Promise<void> {
+    if (!isGitHubConfigured()) {
+      await interaction.reply({
+        content: missingGitHubTokenMessage(),
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const state = parseYdmProjectsPageId(
+      `${YDM_PROJECTS_PAGE_PREFIX}${interaction.customId.slice(
+        YDM_PROJECTS_STATUS_SELECT_PREFIX.length,
+      )}`,
+    );
+    if (!state) {
+      return;
+    }
+
+    const selectedValue = interaction.values[0] ?? "";
+
+    await interaction.deferUpdate();
+    try {
+      let nextState: YdmProjectsPageState;
+      if (!selectedValue || selectedValue === YDM_PROJECTS_STATUS_FILTER_ALL) {
+        const { statusFilter: _omit, ...withoutStatus } = state;
+        nextState = { ...withoutStatus, p: 0 };
+      } else {
+        nextState = { ...state, p: 0, statusFilter: selectedValue };
+      }
+      await renderYdmProjectsPage(interaction, nextState);
+    } catch (err) {
+      loggers.resonite.error("projects status filter failed", err, { state });
+      await interaction.editReply(
+        ydmProjectsMessagePayload(
+          buildYdmProjectsErrorComponents(
+            "Could not apply this Status filter. Try again later.",
+          ),
+        ) as InteractionEditReplyOptions,
+      );
     }
   }
 

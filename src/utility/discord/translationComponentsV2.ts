@@ -18,6 +18,7 @@ import {
   type WeblateTranslationRow,
 } from "../../services/disconite/weblate/searchUnits.js";
 import { truncateEllipsis } from "../text/truncate.js";
+import { isSlashReplyPublic } from "./interactionVisibility.js";
 
 const MAX_LANGUAGE_BLOCKS = 12;
 const TARGET_PREVIEW_LEN = 900;
@@ -39,11 +40,11 @@ export function formatWeblateTranslationLangBlock(
 }
 
 export function translationReplyFlags(
-  ephemeral: boolean | undefined,
+  visible: boolean | undefined,
   forEdit = false,
 ): InteractionReplyOptions["flags"] {
   let n = MessageFlags.IsComponentsV2;
-  if (!forEdit && ephemeral === true) {
+  if (!forEdit && !isSlashReplyPublic(visible)) {
     n |= MessageFlags.Ephemeral;
   }
   return n as InteractionReplyOptions["flags"];

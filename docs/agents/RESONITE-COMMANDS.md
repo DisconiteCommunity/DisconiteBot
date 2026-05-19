@@ -13,20 +13,24 @@ Slash commands under `/resonite`. Shared logic under `src/services/resonite/`:
 
 The Resonite cloud API is read-only and public; it is a WIP and may return 404 or limited fields without auth.
 
+Optional **`visible`** on slash commands **except** **`/resonite metrics` …** (those are channel-visible only): elsewhere, omit or false → only you see the reply; **`visible: true`** → channel-visible.
+
 ## Slash commands
 
 | Command | Purpose |
 |---------|---------|
-| `/resonite search` `record` `url` | Parse `resrec://`, `https://api.resonite.com/open/world\|session/…`, `Resonite:?world=…`, or pasted text with those patterns; load metadata via unauthenticated API. Embed + link buttons (API JSON, open junction, thumbnail CDN when available). |
-| `/resonite search` `wiki` `query` [`ephemeral`] [`preview_chars`] | `preview_chars` **500–1500** (default **500**). Exact title → Components v2 preview. Otherwise opensearch up to **10** hits; one hit → auto-load or single-option select; two or more → list + string select. |
-| `/resonite search` `account` `username` | Public user list (`GET …/users?name=…`). Autocomplete from API. |
-| `/resonite` `quest` | Components v2 notice about Quest / standalone VR; cites [Renderite candidates](https://github.com/Yellow-Dog-Man/Renderite.Candidates); directs toward PC VR. |
-| `/resonite metrics` `register` | **Administrator.** Subscribe channel: one live metrics message (global stats + top sessions), rewritten each poll. Stored in `guild_settings` (`GuildSettings.metrics*`). |
-| `/resonite metrics` `status` | **Administrator.** Show registered channel + thumbnail setting. |
-| `/resonite metrics` `unregister` | **Administrator.** Ephemeral confirm/cancel; removes subscription and best-effort deletes the metrics message. |
-| `/resonite metrics` `preview` `enabled` | **Administrator.** Toggle large session thumbnails per guild. |
-| `/resonite metrics` `info` | Short embed: upstream Resonite Discord Sessions (MIT) and public API endpoints used. |
-| `/resonite` `socials` `user` `platform` | Team roster. `user` autocomplete lists members; `platform` shows only platforms that user has (`wiki`, `discord`, `twitter`, …, or `all`). Specific platform → profile preview via official APIs (`platformPreview`, `team/previews/`). `all` → link buttons; **All platforms** returns from preview. Wiki-only members support `wiki` / `all`; optional `discord: { userId, username }` on roster entries for Discord-only links. |
+| `/resonite search` `record` `url` [`visible`] | Parse `resrec://`, `https://api.resonite.com/open/world\|session/…`, `Resonite:?world=…`, or pasted text with those patterns; load metadata via unauthenticated API. Embed + link buttons (API JSON, open junction, thumbnail CDN when available). |
+| `/resonite search` `wiki` `query` [`visible`] [`preview_chars`] | `preview_chars` **500–1500** (default **500**). Exact title → Components v2 preview. Otherwise opensearch up to **10** hits; one hit → auto-load or single-option select; two or more → list + string select. |
+| `/resonite search` `account` `username` [`visible`] | Public user list (`GET …/users?name=…`). Autocomplete from API. |
+| `/resonite search` `github` [`visible`] | Components v2 dashboard for Yellow-Dog-Man project boards and Resonite issue repositories. Board scope jumps into the paginated board list; repo scope supports repository, query, author, label paging (25 labels per page), and paginated GitHub issue results. Requires `GITHUB_TOKEN`. |
+| `/resonite projects` `list` [`board`] [`in_progress`] [`done`] [`visible`] | Browse Yellow-Dog-Man GitHub Project boards. Omit `board` for a board picker; list/search pages show up to **25** items per page with a **Status** filter menu (Kanban columns) when applicable, a string select to open an issue embed (same as the picker), and pagination. |
+| `/resonite` `quest` [`visible`] | Components v2 notice about Quest / standalone VR; cites [Renderite candidates](https://github.com/Yellow-Dog-Man/Renderite.Candidates); directs toward PC VR. |
+| `/resonite metrics` `register` | **Administrator.** Subscribe channel: one live metrics message (global stats + top sessions), rewritten each poll. Stored in `guild_settings` (`GuildSettings.metrics*`). Replies are **channel-visible** (not ephemeral). |
+| `/resonite metrics` `status` | **Administrator.** Show registered channel + thumbnail setting (channel-visible). |
+| `/resonite metrics` `unregister` | **Administrator.** Confirm/cancel buttons; removes subscription and best-effort deletes the metrics message (channel-visible). |
+| `/resonite metrics` `preview` `enabled` | **Administrator.** Toggle large session thumbnails per guild (channel-visible). |
+| `/resonite metrics` `info` | Short embed: upstream Resonite Discord Sessions (MIT) and public API endpoints used (channel-visible). |
+| `/resonite` `socials` `user` `platform` [`visible`] | Team roster. `user` autocomplete lists members; `platform` shows only platforms that user has (`wiki`, `discord`, `twitter`, …, or `all`). Specific platform → profile preview via official APIs (`platformPreview`, `team/previews/`). `all` → link buttons; **All platforms** returns from preview. Wiki-only members support `wiki` / `all`; optional `discord: { userId, username }` on roster entries for Discord-only links. |
 
 ## Optional environment
 

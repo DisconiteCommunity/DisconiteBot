@@ -5,7 +5,14 @@ import {
   type YdmProjectKey,
 } from "./yellowDogManProjects.js";
 
-export const YDM_PROJECTS_PAGE_SIZE = 5;
+/** Discord string selects allow at most 25 options; match page size to one menu per page. */
+export const YDM_PROJECTS_PAGE_SIZE = 25;
+
+/** Status filter menu: show all Kanban columns. */
+export const YDM_PROJECTS_STATUS_FILTER_ALL = "_all";
+
+/** Status filter menu: items with no GitHub Status set. */
+export const YDM_PROJECTS_STATUS_FILTER_NONE = "_none_status";
 
 export type YdmProjectsViewMode = "list" | "search";
 
@@ -23,6 +30,8 @@ export type YdmProjectsPageState = {
   d?: 1;
   i?: 1;
   q?: string;
+  /** GitHub project Status field; omit or empty = all columns. */
+  statusFilter?: string;
 };
 
 /** Resolved from a “view issue” button (`ydmpi:board|number|repo|flags`). */
@@ -87,6 +96,10 @@ function fromBase64Url(encoded: string): string {
 }
 
 export function encodeYdmProjectsPageId(state: YdmProjectsPageState): string {
+  const statusFilter =
+    typeof state.statusFilter === "string" && state.statusFilter.trim()
+      ? state.statusFilter.trim().slice(0, 100)
+      : undefined;
   const compact: YdmProjectsPageState = {
     v: 1,
     m: state.m,
@@ -95,6 +108,7 @@ export function encodeYdmProjectsPageId(state: YdmProjectsPageState): string {
     ...(state.d ? { d: 1 } : {}),
     ...(state.i ? { i: 1 } : {}),
     ...(state.q ? { q: state.q.slice(0, 48) } : {}),
+    ...(statusFilter ? { statusFilter } : {}),
   };
   return `ydmp:${toBase64Url(JSON.stringify(compact))}`;
 }
@@ -111,17 +125,20 @@ export function parseYdmProjectsPageId(customId: string): YdmProjectsPageState |
     if (!isYdmProjectsBoardParam(raw.b)) {
       return null;
     }
-    if (!Number.isFinite(raw.p) || raw.p < 0) {
+    if (!Number.isFinite(raw.p)) {
       return null;
     }
+    const statusRaw =
+      typeof raw.statusFilter === "string" ? raw.statusFilter.trim() : "";
     return {
       v: 1,
       m: raw.m,
       b: raw.b,
-      p: Math.floor(raw.p),
+      p: Math.max(0, Math.floor(raw.p)),
       ...(raw.d ? { d: 1 } : {}),
       ...(raw.i ? { i: 1 } : {}),
       ...(raw.q ? { q: raw.q } : {}),
+      ...(statusRaw ? { statusFilter: statusRaw.slice(0, 100) } : {}),
     };
   } catch {
     return null;
@@ -181,4 +198,23 @@ export function parseYdmProjectsBoardParam(
     return "all";
   }
   return parseYdmProjectBoardKey(raw);
+}
+
+/** Narrow board items by GitHub project Status (Kanban column). */
+export function filterYdmProjectItemsByStatusColumn(
+  items: readonly YdmProjectItem[],
+  statusFilter: string | undefined,
+): YdmProjectItem[] {
+  if (
+    !statusFilter ||
+    statusFilter === YDM_PROJECTS_STATUS_FILTER_ALL
+  ) {
+    return [...items];
+  }
+  if (statusFilter === YDM_PROJECTS_STATUS_FILTER_NONE) {
+    return items.filter((item) => !item.status?.trim());
+  }
+  return items.filter(
+    (item) => (item.status?.trim() ?? "") === statusFilter,
+  );
 }

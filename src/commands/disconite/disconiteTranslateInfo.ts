@@ -1,7 +1,14 @@
-import { Discord, Slash, SlashGroup } from "discordx";
-import { CommandInteraction, EmbedBuilder } from "discord.js";
+import { Discord, Slash, SlashGroup, SlashOption } from "discordx";
+import {
+  CommandInteraction,
+  EmbedBuilder,
+} from "discord.js";
 import { getWeblateBaseUrl } from "../../config/disconite.js";
 import { linkButtonRow } from "../../utility/discord/linkButtonRow.js";
+import {
+  slashEphemeralReplyFlags,
+  slashVisibleOption,
+} from "../../utility/discord/interactionVisibility.js";
 
 @Discord()
 @SlashGroup({
@@ -16,7 +23,11 @@ export class DisconiteTranslateInfoCommand {
     description:
       "Learn about the unofficial Disconite community translation platform.",
   })
-  async translate(interaction: CommandInteraction): Promise<void> {
+  async translate(
+    @SlashOption(slashVisibleOption)
+    visible: boolean | undefined,
+    interaction: CommandInteraction,
+  ): Promise<void> {
     const url = getWeblateBaseUrl();
     const embed = new EmbedBuilder()
       .setTitle("Community translation")
@@ -38,6 +49,7 @@ export class DisconiteTranslateInfoCommand {
     await interaction.reply({
       embeds: [embed],
       ...(row ? { components: [row] } : {}),
+      flags: slashEphemeralReplyFlags(visible),
     });
   }
 }

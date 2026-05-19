@@ -21,6 +21,7 @@ import {
 import type { DisplayLink } from "../../services/resonite/team/resoniteTeamSocials.js";
 import type { TeamMember } from "../../services/resonite/team/resoniteTeamSocials.js";
 import { truncateEllipsis } from "../text/truncate.js";
+import { isSlashReplyPublic } from "./interactionVisibility.js";
 import { getPlatformAccentColor } from "./socialPlatformColors.js";
 
 const MAX_LINK_ROWS = 30;
@@ -28,10 +29,10 @@ const MAX_BUTTON_LABEL = 80;
 const MAX_GALLERY_IMAGES = 4;
 
 export function socialsReplyFlags(
-  ephemeral?: boolean,
+  visible?: boolean,
 ): InteractionReplyOptions["flags"] {
   let n = MessageFlags.IsComponentsV2;
-  if (ephemeral === true) {
+  if (!isSlashReplyPublic(visible)) {
     n |= MessageFlags.Ephemeral;
   }
   return n as InteractionReplyOptions["flags"];

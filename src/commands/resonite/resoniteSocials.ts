@@ -20,6 +20,10 @@ import {
   socialsEditFlags,
   socialsReplyFlags,
 } from "../../utility/discord/socialsComponentsV2.js";
+import {
+  slashEphemeralReplyFlags,
+  slashVisibleOption,
+} from "../../utility/discord/interactionVisibility.js";
 import { truncateEllipsis } from "../../utility/text/truncate.js";
 import { fetchPlatformPreview } from "../../services/resonite/team/platformPreview.js";
 import {
@@ -71,6 +75,7 @@ async function replyWithPlatformPreview(
   url: string,
   platformLabel: string,
   showBack: boolean,
+  visible: boolean | undefined,
 ): Promise<void> {
   const preview = await fetchPlatformPreview({
     platformId,
@@ -105,7 +110,7 @@ async function replyWithPlatformPreview(
     } else {
       await interaction.reply({
         components: [container],
-        flags: socialsReplyFlags(),
+        flags: socialsReplyFlags(visible),
       });
     }
     return;
@@ -125,7 +130,7 @@ async function replyWithPlatformPreview(
   } else {
     await interaction.reply({
       components: [container],
-      flags: socialsReplyFlags(),
+      flags: socialsReplyFlags(visible),
     });
   }
 }
@@ -161,6 +166,8 @@ export class ResoniteSocialsCommands {
       autocomplete: socialsAutocomplete,
     })
     platform: string,
+    @SlashOption(slashVisibleOption)
+    visible: boolean | undefined,
     interaction: CommandInteraction,
   ): Promise<void> {
     try {
@@ -169,6 +176,7 @@ export class ResoniteSocialsCommands {
         await interaction.reply({
           content:
             "That user is not on the Resonite team roster. Pick a name from autocomplete.",
+          flags: slashEphemeralReplyFlags(visible),
         });
         return;
       }
@@ -180,6 +188,7 @@ export class ResoniteSocialsCommands {
         const list = available.map((p) => `\`${p.id}\``).join(", ");
         await interaction.reply({
           content: `**${member.displayName}** does not have **${platform}** in the roster. Available: ${list || "none"}.`,
+          flags: slashEphemeralReplyFlags(visible),
         });
         return;
       }
@@ -192,6 +201,7 @@ export class ResoniteSocialsCommands {
       if (links.length === 0) {
         await interaction.reply({
           content: `**${member.displayName}** has no **${platformLabel}** link in the roster.`,
+          flags: slashEphemeralReplyFlags(visible),
         });
         return;
       }
@@ -210,6 +220,7 @@ export class ResoniteSocialsCommands {
           primary.url,
           platformLabel,
           false,
+          visible,
         );
         return;
       }
@@ -223,7 +234,7 @@ export class ResoniteSocialsCommands {
 
       await interaction.reply({
         components: [container],
-        flags: socialsReplyFlags(),
+        flags: socialsReplyFlags(visible),
       });
     } catch (err) {
       loggers.resonite.error("resonite socials failed", err, { user, platform });
@@ -232,6 +243,7 @@ export class ResoniteSocialsCommands {
           "Could not load social links. Try again in a moment.",
           300,
         ),
+        flags: slashEphemeralReplyFlags(visible),
       });
     }
   }
@@ -274,6 +286,7 @@ export class ResoniteSocialsCommands {
         link.url,
         platformLabel,
         true,
+        undefined,
       );
     } catch (err) {
       loggers.resonite.error("social preview button failed", err, parsed);

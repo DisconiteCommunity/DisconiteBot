@@ -1,6 +1,13 @@
 import { ContainerBuilder, TextDisplayBuilder } from "@discordjs/builders";
-import { Discord, Slash, SlashGroup } from "discordx";
-import { CommandInteraction, MessageFlags } from "discord.js";
+import { Discord, Slash, SlashGroup, SlashOption } from "discordx";
+import {
+  CommandInteraction,
+  MessageFlags,
+} from "discord.js";
+import {
+  slashEphemeralMessageFlag,
+  slashVisibleOption,
+} from "../../utility/discord/interactionVisibility.js";
 
 /** Accent visible as Components v2 container sidebar (subdued slate). */
 const QUEST_REPLY_ACCENT = 0x64748b;
@@ -18,7 +25,11 @@ export class ResoniteQuestCommand {
     description:
       "Whether Resonite runs on Meta Quest / Oculus Quest headsets.",
   })
-  async quest(interaction: CommandInteraction): Promise<void> {
+  async quest(
+    @SlashOption(slashVisibleOption)
+    visible: boolean | undefined,
+    interaction: CommandInteraction,
+  ): Promise<void> {
     const container = new ContainerBuilder()
       .setAccentColor(QUEST_REPLY_ACCENT)
       .addTextDisplayComponents(
@@ -35,7 +46,8 @@ export class ResoniteQuestCommand {
 
     await interaction.reply({
       components: [container],
-      flags: MessageFlags.IsComponentsV2,
+      flags:
+        MessageFlags.IsComponentsV2 | slashEphemeralMessageFlag(visible),
     });
   }
 }

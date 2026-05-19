@@ -23,6 +23,12 @@ import { loggers } from "../../utility/logging/logger.js";
 import { toDiscordStringAutocompleteChoices } from "../../utility/discord/discordAutocompleteChoices.js";
 import { linkButtonRow } from "../../utility/discord/linkButtonRow.js";
 import { truncateEllipsis } from "../../utility/text/truncate.js";
+import { isGitHubConfigured } from "../../config/github.js";
+import {
+  defaultYdmIssuesSearchState,
+  renderYdmIssuesSearchDashboard,
+} from "../../services/github/ydmIssuesSearchDashboard.js";
+import { missingGitHubTokenMessage } from "../../services/github/ydmProjectsReply.js";
 import { ResoniteApiError } from "../../services/resonite/api/api.js";
 import { parseRecordInput } from "../../services/resonite/records/recordLinks.js";
 import {
@@ -57,6 +63,12 @@ import {
   WIKI_PAGE_PICK_MENU_ID,
   WIKI_PAGE_PICK_STATE_PREFIX,
 } from "../../utility/discord/discordInteractionIds.js";
+import {
+  slashDeferEphemeralFlags,
+  slashEphemeralMessageFlag,
+  slashEphemeralReplyFlags,
+  slashVisibleOption,
+} from "../../utility/discord/interactionVisibility.js";
 
 const WIKI_PREVIEW_CHARACTER_MIN = 500;
 const WIKI_PREVIEW_CHARACTER_MAX = 1500;
@@ -133,7 +145,7 @@ function decodeWikiPickFooter(text: string | null | undefined): WikiPickState | 
 async function replyWikiExactV2(
   interaction: CommandInteraction,
   exact: { title: string; wikitext: string },
-  ephemeral: boolean | undefined,
+  visible: boolean | undefined,
   previewLimit: number,
 ): Promise<void> {
   let titleLine = `# ${exact.title}`;
@@ -172,7 +184,7 @@ async function replyWikiExactV2(
 
   await interaction.reply({
     components: [container],
-    flags: wikiReplyFlags(ephemeral, true),
+    flags: wikiReplyFlags(visible, true),
   });
 }
 
@@ -194,12 +206,12 @@ function buildWikiPreviewEmbed(
 
 function buildWikiPickListMessage(
   hits: WikiSearchHit[],
-  ephemeral: boolean | undefined,
+  visible: boolean | undefined,
   previewLimit: number,
 ): { embed: EmbedBuilder; row: ActionRowBuilder<StringSelectMenuBuilder> } {
   const state: WikiPickState = {
     titles: hits.map((h) => h.title),
-    ephemeral: ephemeral === true,
+    ephemeral: visible !== true,
     previewLimit,
   };
   const desc = truncateEllipsis(
@@ -243,16 +255,14 @@ function buildWikiPickListMessage(
 }
 
 function wikiReplyFlags(
-  ephemeral: boolean | undefined,
+  visible: boolean | undefined,
   useComponentsV2: boolean,
 ): InteractionReplyOptions["flags"] | undefined {
   let n = 0;
   if (useComponentsV2) {
     n |= MessageFlags.IsComponentsV2;
   }
-  if (ephemeral === true) {
-    n |= MessageFlags.Ephemeral;
-  }
+  n |= slashEphemeralMessageFlag(visible);
   if (n === 0) {
     return undefined;
   }
@@ -299,6 +309,38 @@ async function accountUsernameAutocomplete(
 @SlashGroup("search", "resonite")
 export class ResoniteSearchCommands {
   @Slash({
+    name: "github",
+    description:
+      "Search Resonite GitHub issues and YDM project-board items with interactive filters.",
+  })
+  async github(
+    @SlashOption(slashVisibleOption)
+    visible: boolean | undefined,
+    interaction: CommandInteraction,
+  ): Promise<void> {
+    if (!isGitHubConfigured()) {
+      await interaction.reply({
+        content: missingGitHubTokenMessage(),
+        flags: slashEphemeralReplyFlags(visible),
+      });
+      return;
+    }
+
+    await interaction.deferReply(slashDeferEphemeralFlags(visible));
+    try {
+      await renderYdmIssuesSearchDashboard(interaction, {
+        ...defaultYdmIssuesSearchState(),
+      });
+    } catch (err) {
+      loggers.resonite.error("github search dashboard failed", err, {});
+      await interaction.editReply({
+        content: "Could not load the GitHub search dashboard.",
+        components: [],
+      });
+    }
+  }
+
+  @Slash({
     name: "wiki",
     description:
       "Search the official Resonite wiki (MediaWiki opensearch; type for suggestions).",
@@ -312,14 +354,8 @@ export class ResoniteSearchCommands {
       autocomplete: wikiQueryAutocomplete,
     })
     query: string,
-    @SlashOption({
-      name: "ephemeral",
-      description:
-        "If true, only you see the result. If false, the channel sees it (share with others).",
-      type: ApplicationCommandOptionType.Boolean,
-      required: false,
-    })
-    ephemeral: boolean | undefined,
+    @SlashOption(slashVisibleOption)
+    visible: boolean | undefined,
     @SlashOption({
       name: "preview_characters",
       description:
@@ -336,7 +372,7 @@ export class ResoniteSearchCommands {
     try {
       const exact = await fetchWikiPageWikitextIfExists(query);
       if (exact) {
-        await replyWikiExactV2(interaction, exact, ephemeral, previewLimit);
+        await replyWikiExactV2(interaction, exact, visible, previewLimit);
         return;
       }
 
@@ -344,7 +380,7 @@ export class ResoniteSearchCommands {
       if (hits.length === 0) {
         await interaction.reply({
           content: "No wiki pages matched that query.",
-          flags: wikiReplyFlags(ephemeral, false),
+          flags: wikiReplyFlags(visible, false),
         });
         return;
       }
@@ -352,38 +388,38 @@ export class ResoniteSearchCommands {
       if (hits.length === 1) {
         const only = await fetchWikiPageWikitextIfExists(hits[0].title);
         if (only) {
-          await replyWikiExactV2(interaction, only, ephemeral, previewLimit);
+          await replyWikiExactV2(interaction, only, visible, previewLimit);
           return;
         }
         const { embed, row } = buildWikiPickListMessage(
           hits,
-          ephemeral,
+          visible,
           previewLimit,
         );
         await interaction.reply({
           embeds: [embed],
           components: [row],
-          flags: wikiReplyFlags(ephemeral, false),
+          flags: wikiReplyFlags(visible, false),
         });
         return;
       }
 
       const { embed, row } = buildWikiPickListMessage(
         hits,
-        ephemeral,
+        visible,
         previewLimit,
       );
       await interaction.reply({
         embeds: [embed],
         components: [row],
-        flags: wikiReplyFlags(ephemeral, false),
+        flags: wikiReplyFlags(visible, false),
       });
     } catch (err) {
       loggers.resonite.error("wiki search failed", err, { query });
       await interaction.reply({
         content:
           "Wiki search failed (network or API error). Try again in a moment.",
-        flags: wikiReplyFlags(ephemeral, false),
+        flags: wikiReplyFlags(visible, false),
       });
     }
   }
@@ -466,6 +502,8 @@ export class ResoniteSearchCommands {
       autocomplete: accountUsernameAutocomplete,
     })
     username: string,
+    @SlashOption(slashVisibleOption)
+    visible: boolean | undefined,
     interaction: CommandInteraction,
   ): Promise<void> {
     try {
@@ -474,6 +512,7 @@ export class ResoniteSearchCommands {
         await interaction.reply({
           content:
             "No users matched that name. Try a different spelling or a longer substring.",
+          flags: slashEphemeralReplyFlags(visible),
         });
         return;
       }
@@ -519,17 +558,20 @@ export class ResoniteSearchCommands {
       await interaction.reply({
         embeds: [embed],
         ...(row ? { components: [row] } : {}),
+        flags: slashEphemeralReplyFlags(visible),
       });
     } catch (err) {
       loggers.resonite.error("account search failed", err, { username });
       if (err instanceof ResoniteApiError) {
         await interaction.reply({
           content: `Resonite user search failed (${err.status}). The API may be unavailable.`,
+          flags: slashEphemeralReplyFlags(visible),
         });
         return;
       }
       await interaction.reply({
         content: "Could not reach the Resonite API. Try again later.",
+        flags: slashEphemeralReplyFlags(visible),
       });
     }
   }
@@ -548,11 +590,16 @@ export class ResoniteSearchCommands {
       required: true,
     })
     url: string,
+    @SlashOption(slashVisibleOption)
+    visible: boolean | undefined,
     interaction: CommandInteraction,
   ): Promise<void> {
     const parsed = parseRecordInput(url);
     if (!parsed.ok) {
-      await interaction.reply({ content: parsed.reason });
+      await interaction.reply({
+        content: parsed.reason,
+        flags: slashEphemeralReplyFlags(visible),
+      });
       return;
     }
 
@@ -581,6 +628,7 @@ export class ResoniteSearchCommands {
         await interaction.reply({
           embeds: [embed],
           ...(row ? { components: [row] } : {}),
+          flags: slashEphemeralReplyFlags(visible),
         });
         return;
       }
@@ -678,6 +726,7 @@ export class ResoniteSearchCommands {
       await interaction.reply({
         embeds: [embed],
         ...(row ? { components: [row] } : {}),
+        flags: slashEphemeralReplyFlags(visible),
       });
     } catch (err) {
       loggers.resonite.error("record command failed", err, { url });
@@ -685,12 +734,14 @@ export class ResoniteSearchCommands {
         await interaction.reply({
           content:
             "Nothing found for that link (404). The record may be private, deleted, or the link may be outdated.",
+          flags: slashEphemeralReplyFlags(visible),
         });
         return;
       }
       await interaction.reply({
         content:
           "Could not load that record from the Resonite API. Try again later or check the link.",
+        flags: slashEphemeralReplyFlags(visible),
       });
     }
   }

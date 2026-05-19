@@ -12,7 +12,12 @@ import {
   type MessageCreateOptions,
   type MessageEditOptions,
 } from "discord.js";
-import { YDM_PROJECTS_PICK_BOARD_PREFIX } from "../../utility/discord/discordInteractionIds.js";
+import {
+  YDM_ISSUES_SEARCH_RESET_BUTTON_ID,
+  YDM_PROJECTS_ITEM_SELECT_PREFIX,
+  YDM_PROJECTS_PICK_BOARD_PREFIX,
+  YDM_PROJECTS_STATUS_SELECT_PREFIX,
+} from "../../utility/discord/discordInteractionIds.js";
 import { truncateEllipsis } from "../../utility/text/truncate.js";
 import {
   computeYdmBoardCompareRows,
@@ -28,9 +33,10 @@ import {
   type YdmProjectItem,
 } from "./yellowDogManProjects.js";
 import {
-  encodeYdmProjectItemId,
   encodeYdmProjectsPageId,
   YDM_PROJECTS_PAGE_SIZE,
+  YDM_PROJECTS_STATUS_FILTER_ALL,
+  YDM_PROJECTS_STATUS_FILTER_NONE,
   ydmProjectsHasMorePages,
   ydmProjectsHasPreviousPage,
   ydmProjectsPageCount,
@@ -165,36 +171,100 @@ export function buildYdmBoardPickerComponents(
   return [container];
 }
 
-function buildIssueViewButtons(
-  slice: readonly YdmProjectItem[],
+export function encodeYdmProjectsItemSelectMenuId(
+  state: YdmProjectsPageState,
+): string {
+  return `${YDM_PROJECTS_ITEM_SELECT_PREFIX}${encodeYdmProjectsPageId(state).slice(
+    "ydmp:".length,
+  )}`;
+}
+
+export function encodeYdmProjectsStatusSelectMenuId(
+  state: YdmProjectsPageState,
+): string {
+  return `${YDM_PROJECTS_STATUS_SELECT_PREFIX}${encodeYdmProjectsPageId(state).slice(
+    "ydmp:".length,
+  )}`;
+}
+
+export type YdmProjectsStatusColumnMenuPayload = {
+  readonly namedStatuses: readonly string[];
+  readonly includeNoStatus: boolean;
+};
+
+function buildStatusFilterSelectRow(
   pageState: YdmProjectsPageState,
-): ButtonBuilder[] {
-  const buttons: ButtonBuilder[] = [];
-  for (const item of slice) {
-    if (buttons.length >= 5 || item.number == null) {
-      continue;
-    }
-    buttons.push(
-      new ButtonBuilder()
-        .setCustomId(
-          encodeYdmProjectItemId({
-            boardKey: item.projectKey,
-            number: item.number,
-            repo: item.repo,
-            includeDone: pageState.d === 1,
-            inProgressOnly: pageState.i === 1,
-          }),
-        )
-        .setLabel(
-          truncateEllipsis(
-            `${formatYdmItemNumberLabel(item)} ${item.title}`,
-            80,
-          ),
-        )
-        .setStyle(ButtonStyle.Primary),
+  menu: YdmProjectsStatusColumnMenuPayload,
+): ActionRowBuilder<StringSelectMenuBuilder> {
+  const reservedSlots = 1 + (menu.includeNoStatus ? 1 : 0);
+  const maxNamedStatuses = Math.max(0, 25 - reservedSlots);
+  const namedStatusesThisPage = menu.namedStatuses.slice(0, maxNamedStatuses);
+
+  const menuBuilder = new StringSelectMenuBuilder()
+    .setCustomId(encodeYdmProjectsStatusSelectMenuId(pageState))
+    .setPlaceholder("Filter by Status (Kanban)…")
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel("All columns")
+        .setValue(YDM_PROJECTS_STATUS_FILTER_ALL)
+        .setDefault(!pageState.statusFilter),
+    );
+
+  for (const status of namedStatusesThisPage) {
+    const value = status;
+    menuBuilder.addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel(truncateEllipsis(status, 100))
+        .setValue(value)
+        .setDefault(pageState.statusFilter === status),
     );
   }
-  return buttons;
+
+  if (menu.includeNoStatus) {
+    menuBuilder.addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel("(No status)")
+        .setValue(YDM_PROJECTS_STATUS_FILTER_NONE)
+        .setDefault(
+          pageState.statusFilter === YDM_PROJECTS_STATUS_FILTER_NONE,
+        ),
+    );
+  }
+
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menuBuilder);
+}
+
+function buildIssueViewSelectRow(
+  slice: readonly YdmProjectItem[],
+  pageState: YdmProjectsPageState,
+): ActionRowBuilder<StringSelectMenuBuilder> | null {
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(encodeYdmProjectsItemSelectMenuId(pageState))
+    .setPlaceholder("View an issue…")
+    .setMinValues(1)
+    .setMaxValues(1);
+
+  for (const item of slice) {
+    if (item.number === null) {
+      continue;
+    }
+    const descParts = [item.status, item.repo].filter(Boolean).join(" · ");
+    menu.addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel(
+          truncateEllipsis(`${formatYdmItemNumberLabel(item)} ${item.title}`, 100),
+        )
+        .setValue(encodeYdmIssueSelectValue(item.projectKey, item.number, item.repo))
+        .setDescription(truncateEllipsis(descParts || item.projectTitle, 100)),
+    );
+  }
+
+  if (menu.options.length === 0) {
+    return null;
+  }
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
 }
 
 function ydmProjectsNavLabelId(page: number, totalPages: number): string {
@@ -214,6 +284,7 @@ export function buildYdmProjectsPageComponents(
   items: readonly YdmProjectItem[],
   pageState: YdmProjectsPageState,
   boardUrl: string | null,
+  statusColumnMenu: YdmProjectsStatusColumnMenuPayload | null = null,
 ): ContainerBuilder[] {
   const totalPages = ydmProjectsPageCount(items.length);
   const page = pageState.p;
@@ -223,7 +294,7 @@ export function buildYdmProjectsPageComponents(
   const bodyLines: string[] = [
     header,
     "",
-    "_Use the buttons below to view an issue in an embed._",
+    "_Use the menu below to view an issue in an embed._",
     "",
   ];
   if (slice.length === 0) {
@@ -241,11 +312,17 @@ export function buildYdmProjectsPageComponents(
     new TextDisplayBuilder().setContent(truncateEllipsis(bodyLines.join("\n"), 4000)),
   );
 
+  if (statusColumnMenu) {
+    container.addActionRowComponents(
+      buildStatusFilterSelectRow(pageState, statusColumnMenu),
+    );
+  }
+
   if (totalPages > 0) {
     const navRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
+        new ButtonBuilder()
         .setCustomId(
-          encodeYdmProjectsPageId({ ...pageState, p: Math.max(0, page - 1) }),
+          encodeYdmProjectsPageId({ ...pageState, p: page - 1 }),
         )
         .setLabel("<")
         .setStyle(ButtonStyle.Secondary)
@@ -269,11 +346,9 @@ export function buildYdmProjectsPageComponents(
     container.addActionRowComponents(navRow);
   }
 
-  const viewButtons = buildIssueViewButtons(slice, pageState);
-  if (viewButtons.length > 0) {
-    container.addActionRowComponents(
-      new ActionRowBuilder<ButtonBuilder>().addComponents(...viewButtons),
-    );
+  const viewSelectRow = buildIssueViewSelectRow(slice, pageState);
+  if (viewSelectRow) {
+    container.addActionRowComponents(viewSelectRow);
   }
 
   if (boardUrl?.startsWith("http")) {
@@ -283,6 +358,27 @@ export function buildYdmProjectsPageComponents(
           .setStyle(ButtonStyle.Link)
           .setLabel("Project board on GitHub")
           .setURL(boardUrl),
+      ),
+    );
+  }
+
+  if (pageState.m === "search") {
+    container.addActionRowComponents(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(
+            encodeYdmProjectsPageId({
+              ...pageState,
+              b: "all",
+              p: 0,
+            }),
+          )
+          .setLabel("All boards")
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(YDM_ISSUES_SEARCH_RESET_BUTTON_ID)
+          .setLabel("Reset search")
+          .setStyle(ButtonStyle.Danger),
       ),
     );
   }

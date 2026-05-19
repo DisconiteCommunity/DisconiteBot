@@ -1,10 +1,17 @@
-import { Discord, Slash, SlashGroup } from "discordx";
-import { CommandInteraction, EmbedBuilder } from "discord.js";
+import { Discord, Slash, SlashGroup, SlashOption } from "discordx";
+import {
+  CommandInteraction,
+  EmbedBuilder,
+} from "discord.js";
 import {
   getDisconiteForumBaseUrl,
   getDisconiteForumWelcomePostUrl,
 } from "../../config/disconite.js";
 import { linkButtonRow } from "../../utility/discord/linkButtonRow.js";
+import {
+  slashEphemeralReplyFlags,
+  slashVisibleOption,
+} from "../../utility/discord/interactionVisibility.js";
 
 @Discord()
 @SlashGroup({
@@ -19,7 +26,11 @@ export class DisconiteForumInfoCommand {
     description:
       "Learn about the Disconite community forum and how to get started.",
   })
-  async forum(interaction: CommandInteraction): Promise<void> {
+  async forum(
+    @SlashOption(slashVisibleOption)
+    visible: boolean | undefined,
+    interaction: CommandInteraction,
+  ): Promise<void> {
     const forumUrl = getDisconiteForumBaseUrl();
     const welcomeUrl = getDisconiteForumWelcomePostUrl();
 
@@ -47,6 +58,7 @@ export class DisconiteForumInfoCommand {
     await interaction.reply({
       embeds: [embed],
       ...(row ? { components: [row] } : {}),
+      flags: slashEphemeralReplyFlags(visible),
     });
   }
 }

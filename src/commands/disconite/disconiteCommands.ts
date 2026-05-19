@@ -52,6 +52,10 @@ import {
   WEBLATE_KEY_PICK_MENU_ID,
   WEBLATE_KEY_PICK_STATE_PREFIX,
 } from "../../utility/discord/discordInteractionIds.js";
+import {
+  slashEphemeralReplyFlags,
+  slashVisibleOption,
+} from "../../utility/discord/interactionVisibility.js";
 
 type TranslatePickState = {
   contexts: string[];
@@ -64,12 +68,6 @@ type ForumPickState = {
   query: string;
   ephemeral: boolean;
 };
-
-function replyFlags(
-  ephemeral: boolean | undefined,
-): MessageFlags.Ephemeral | undefined {
-  return ephemeral ? MessageFlags.Ephemeral : undefined;
-}
 
 function encodeTranslatePickFooter(state: TranslatePickState): string {
   const slim: TranslatePickState = {
@@ -153,7 +151,7 @@ async function replyTranslationV2(
   interaction: CommandInteraction | StringSelectMenuInteraction,
   group: WeblateKeyGroup,
   languages: string[] | null,
-  ephemeral: boolean | undefined,
+  visible: boolean | undefined,
   edit = false,
 ): Promise<void> {
   const container = buildTranslationContainer(group, languages);
@@ -170,14 +168,14 @@ async function replyTranslationV2(
   await (interaction as CommandInteraction).reply({
     embeds: [],
     components: [container],
-    flags: translationReplyFlags(ephemeral),
+    flags: translationReplyFlags(visible),
   });
 }
 
 function buildTranslateKeyPickMessage(
   groups: WeblateKeyGroup[],
   languages: string[] | null,
-  ephemeral: boolean | undefined,
+  visible: boolean | undefined,
   rawQuery?: string,
 ): {
   embed: EmbedBuilder;
@@ -186,7 +184,7 @@ function buildTranslateKeyPickMessage(
   const state: TranslatePickState = {
     contexts: groups.map((g) => g.context),
     languages,
-    ephemeral: ephemeral === true,
+    ephemeral: visible !== true,
     rawQuery: rawQuery?.trim() || undefined,
   };
 
@@ -245,14 +243,14 @@ function buildForumPostEmbed(hit: ForumPostHit): EmbedBuilder {
 function buildForumPostPickMessage(
   hits: ForumPostHit[],
   query: string,
-  ephemeral: boolean | undefined,
+  visible: boolean | undefined,
 ): {
   embed: EmbedBuilder;
   row: ActionRowBuilder<StringSelectMenuBuilder>;
 } {
   const state: ForumPickState = {
     query,
-    ephemeral: ephemeral === true,
+    ephemeral: visible !== true,
   };
 
   const embed = new EmbedBuilder()
@@ -370,13 +368,8 @@ export class DisconiteCommands {
       required: false,
     })
     query: string | undefined,
-    @SlashOption({
-      name: "ephemeral",
-      description: "Only you see the result when true",
-      type: ApplicationCommandOptionType.Boolean,
-      required: false,
-    })
-    ephemeral: boolean | undefined,
+    @SlashOption(slashVisibleOption)
+    visible: boolean | undefined,
     interaction: CommandInteraction,
   ): Promise<void> {
     const languages = parseLanguageFilter(languagesRaw);
@@ -386,30 +379,30 @@ export class DisconiteCommands {
         await interaction.reply({
           content:
             "No translation units matched. Pick a key from autocomplete or try another search.",
-          flags: replyFlags(ephemeral),
+          flags: slashEphemeralReplyFlags(visible),
         });
         return;
       }
 
       if (groups.length === 1) {
-        await replyTranslationV2(interaction, groups[0], languages, ephemeral);
+        await replyTranslationV2(interaction, groups[0], languages, visible);
         return;
       }
 
       const { embed, row } = buildTranslateKeyPickMessage(
         groups,
         languages,
-        ephemeral,
+        visible,
         query,
       );
       await interaction.reply({
         embeds: [embed],
         components: [row],
-        flags: replyFlags(ephemeral),
+        flags: slashEphemeralReplyFlags(visible),
       });
     } catch (err) {
       loggers.disconite.error("translate failed", err, { key, query });
-      await replyTranslateError(interaction, err, ephemeral);
+      await replyTranslateError(interaction, err, visible);
     }
   }
 
@@ -460,7 +453,7 @@ export class DisconiteCommands {
         interaction,
         group,
         state.languages,
-        state.ephemeral,
+        state.ephemeral ? undefined : true,
         true,
       );
     } catch (err) {
@@ -485,13 +478,8 @@ export class DisconiteCommands {
       autocomplete: forumQueryAutocompleteHandler,
     })
     query: string,
-    @SlashOption({
-      name: "ephemeral",
-      description: "Only you see the result when true",
-      type: ApplicationCommandOptionType.Boolean,
-      required: false,
-    })
-    ephemeral: boolean | undefined,
+    @SlashOption(slashVisibleOption)
+    visible: boolean | undefined,
     interaction: CommandInteraction,
   ): Promise<void> {
     try {
@@ -499,7 +487,7 @@ export class DisconiteCommands {
       if (hits.length === 0) {
         await interaction.reply({
           content: "No forum posts matched that query.",
-          flags: replyFlags(ephemeral),
+          flags: slashEphemeralReplyFlags(visible),
         });
         return;
       }
@@ -517,7 +505,7 @@ export class DisconiteCommands {
         await interaction.reply({
           embeds: [embed],
           ...(linkRow ? { components: [linkRow] } : {}),
-          flags: replyFlags(ephemeral),
+          flags: slashEphemeralReplyFlags(visible),
         });
         return;
       }
@@ -525,16 +513,16 @@ export class DisconiteCommands {
       const { embed, row } = buildForumPostPickMessage(
         hits,
         query,
-        ephemeral,
+        visible,
       );
       await interaction.reply({
         embeds: [embed],
         components: [row],
-        flags: replyFlags(ephemeral),
+        flags: slashEphemeralReplyFlags(visible),
       });
     } catch (err) {
       loggers.disconite.error("forum search failed", err, { query });
-      await replyForumError(interaction, err, ephemeral);
+      await replyForumError(interaction, err, visible);
     }
   }
 
@@ -586,7 +574,7 @@ export class DisconiteCommands {
 async function replyTranslateError(
   interaction: CommandInteraction,
   err: unknown,
-  ephemeral: boolean | undefined,
+  visible: boolean | undefined,
 ): Promise<void> {
   if (err instanceof WeblateApiError) {
     const hint =
@@ -595,38 +583,38 @@ async function replyTranslateError(
         : "";
     await interaction.reply({
       content: `Weblate lookup failed (${err.status}).${hint}`,
-      flags: replyFlags(ephemeral),
+      flags: slashEphemeralReplyFlags(visible),
     });
     return;
   }
   await interaction.reply({
     content:
       "Could not reach translate.disconite.net. Try again in a moment.",
-    flags: replyFlags(ephemeral),
+    flags: slashEphemeralReplyFlags(visible),
   });
 }
 
 async function replyForumError(
   interaction: CommandInteraction,
   err: unknown,
-  ephemeral: boolean | undefined,
+  visible: boolean | undefined,
 ): Promise<void> {
   if (err instanceof DiscourseApiError) {
     await interaction.reply({
       content: `Forum search failed (${err.status}).`,
-      flags: replyFlags(ephemeral),
+      flags: slashEphemeralReplyFlags(visible),
     });
     return;
   }
   if (err instanceof Error && err.message) {
     await interaction.reply({
       content: `Forum search failed: ${truncateEllipsis(err.message, 300)}`,
-      flags: replyFlags(ephemeral),
+      flags: slashEphemeralReplyFlags(visible),
     });
     return;
   }
   await interaction.reply({
     content: "Could not reach disconite.net. Try again in a moment.",
-    flags: replyFlags(ephemeral),
+    flags: slashEphemeralReplyFlags(visible),
   });
 }

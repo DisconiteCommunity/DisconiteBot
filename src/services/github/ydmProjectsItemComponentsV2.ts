@@ -103,10 +103,15 @@ export function buildYdmProjectItemComponents(
 
 export function ydmProjectItemReplyPayload(
   item: YdmProjectItem,
+  opts?: { readonly ephemeral?: boolean },
 ): InteractionReplyOptions {
+  let n = MessageFlags.IsComponentsV2;
+  if (opts?.ephemeral !== false) {
+    n |= MessageFlags.Ephemeral;
+  }
   return {
     embeds: [],
     components: buildYdmProjectItemComponents(item),
-    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+    flags: n as InteractionReplyOptions["flags"],
   };
 }

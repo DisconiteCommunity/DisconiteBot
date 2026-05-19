@@ -4,12 +4,14 @@ Slash commands under `/disconite`. Shared logic: `src/services/disconite/weblate
 
 Optional env (defaults in code): `WEBLATE_BASE_URL`, `WEBLATE_API_TOKEN`, `DISCONITE_FORUM_BASE_URL`. See [Environment](ENVIRONMENT.md) and `.env.example`.
 
+Optional **`visible`** on most slash commands: omit or false → only you see the reply; **`visible: true`** → channel-visible.
+
 | Command | Purpose |
 |---------|---------|
-| `/disconite` `translate` | Info embed + link to [translate.disconite.net](https://translate.disconite.net). |
-| `/disconite` `forum` | Info embed + links to [disconite.net](https://disconite.net) and the [welcome topic](https://disconite.net/t/welcome-to-the-disconite-forum/53/5). |
-| `/disconite search` `translation` `key` [`languages`] [`query`] [`ephemeral`] | Search Weblate. `key` and `languages` use autocomplete. Optional `languages`: comma-separated codes (e.g. `en,nl`); empty = all langs. One key → embed; several → string select menu. |
-| `/disconite search` `forum` `query` [`ephemeral`] | Search forum via `GET /search.json`. `query` autocomplete suggests topics. One post → embed; several → string select menu. Author lines show forum account metadata when available. |
+| `/disconite` `translate` [`visible`] | Info embed + link to [translate.disconite.net](https://translate.disconite.net). |
+| `/disconite` `forum` [`visible`] | Info embed + links to [disconite.net](https://disconite.net) and the [welcome topic](https://disconite.net/t/welcome-to-the-disconite-forum/53/5). |
+| `/disconite search` `translation` `key` [`languages`] [`query`] [`visible`] | Search Weblate. `key` and `languages` use autocomplete. Optional `languages`: comma-separated codes (e.g. `en,nl`); empty = all langs. One key → embed; several → string select menu. |
+| `/disconite search` `forum` `query` [`visible`] | Search forum via `GET /search.json`. `query` autocomplete suggests topics. One post → embed; several → string select menu. Author lines show forum account metadata when available. |
 
 ## Related docs
 

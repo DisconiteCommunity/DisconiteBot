@@ -4,6 +4,7 @@ import type {
   MessageComponentInteraction,
 } from "discord.js";
 import { findProjectBoard, ydmBoardDisplayName } from "./yellowDogManProjects.js";
+import type { YdmProjectItem } from "./yellowDogManProjects.js";
 import { getFilteredYdmProjectItems } from "./ydmProjectsCache.js";
 import {
   buildYdmProjectsPageComponents,
@@ -11,32 +12,65 @@ import {
 } from "./ydmProjectsComponentsV2.js";
 import {
   clampYdmProjectsPageIndex,
+  filterYdmProjectItemsByStatusColumn,
+  YDM_PROJECTS_STATUS_FILTER_NONE,
   type YdmProjectsBoardParam,
   type YdmProjectsPageState,
   ydmProjectsPageCount,
 } from "./ydmProjectsPages.js";
 import { truncateEllipsis } from "../../utility/text/truncate.js";
 
+function collectStatusColumnChoices(items: readonly YdmProjectItem[]): {
+  namedStatuses: string[];
+  includeNoStatus: boolean;
+} {
+  const namedStatuses = new Set<string>();
+  let includeNoStatus = false;
+  for (const item of items) {
+    const status = item.status?.trim();
+    if (status) {
+      if (status.length <= 100) {
+        namedStatuses.add(status);
+      }
+    } else {
+      includeNoStatus = true;
+    }
+  }
+  return {
+    namedStatuses: [...namedStatuses].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    ),
+    includeNoStatus,
+  };
+}
+
 function boardHeader(
   board: YdmProjectsBoardParam,
   boards: Awaited<ReturnType<typeof getFilteredYdmProjectItems>>["boards"],
   mode: "list" | "search",
   query?: string,
+  statusFilter?: string,
 ): { title: string; boardUrl: string | null } {
+  const statusSuffix =
+    statusFilter === YDM_PROJECTS_STATUS_FILTER_NONE
+      ? " · Status: _(none)_"
+      : statusFilter
+        ? ` · Status: ${statusFilter}`
+        : "";
   if (board === "all") {
-    const title =
+    const titleBase =
       mode === "search" && query
         ? `All boards · “${query}”`
         : "All team boards";
-    return { title, boardUrl: null };
+    return { title: titleBase + statusSuffix, boardUrl: null };
   }
   const hit = findProjectBoard(boards, board);
   const display = hit ? ydmBoardDisplayName(hit) : String(board);
-  const title =
+  const titleBase =
     mode === "search" && query
       ? `${display} · “${query}”`
       : display;
-  return { title, boardUrl: hit?.boardUrl ?? null };
+  return { title: titleBase + statusSuffix, boardUrl: hit?.boardUrl ?? null };
 }
 
 export async function renderYdmProjectsPage(
@@ -48,12 +82,23 @@ export async function renderYdmProjectsPage(
 ): Promise<void> {
   const includeDone = state.d === 1;
   const inProgressOnly = state.i === 1;
-  const { boards, items } = await getFilteredYdmProjectItems({
+  const { boards, items: itemsBeforeStatus } = await getFilteredYdmProjectItems({
     board: state.b,
     includeDone,
     inProgressOnly,
     query: state.m === "search" ? state.q : undefined,
   });
+
+  const statusColumnMenu = collectStatusColumnChoices(itemsBeforeStatus);
+  const statusMenuPayload =
+    statusColumnMenu.namedStatuses.length > 0 || statusColumnMenu.includeNoStatus
+      ? statusColumnMenu
+      : null;
+
+  const items = filterYdmProjectItemsByStatusColumn(
+    itemsBeforeStatus,
+    state.statusFilter,
+  );
 
   const totalPages = ydmProjectsPageCount(items.length);
   const pageIndex = clampYdmProjectsPageIndex(state.p, totalPages);
@@ -64,9 +109,10 @@ export async function renderYdmProjectsPage(
     boards,
     state.m,
     state.q,
+    state.statusFilter,
   );
 
-  if (items.length === 0) {
+  if (itemsBeforeStatus.length === 0) {
     const empty = [
       `# ${title}`,
       state.m === "search"
@@ -78,7 +124,13 @@ export async function renderYdmProjectsPage(
             : "_No active items (done items are hidden unless **done** is true)._",
     ].join("\n");
     const payload = ydmProjectsMessagePayload(
-      buildYdmProjectsPageComponents(empty, [], pageState, boardUrl),
+      buildYdmProjectsPageComponents(
+        empty,
+        [],
+        pageState,
+        boardUrl,
+        null,
+      ),
     );
     if (editOpts?.fromDeferUpdate && interaction.isMessageComponent()) {
       await interaction.editReply(payload as InteractionEditReplyOptions);
@@ -88,12 +140,31 @@ export async function renderYdmProjectsPage(
     return;
   }
 
+  if (items.length === 0) {
+    const empty = [
+      `# ${title}`,
+      "_No items match this **Status** filter. Choose **All columns** in the menu below._",
+    ].join("\n");
+    const payload = ydmProjectsMessagePayload(
+      buildYdmProjectsPageComponents(
+        empty,
+        [],
+        pageState,
+        boardUrl,
+        statusMenuPayload,
+      ),
+    );
+    await interaction.editReply(payload as InteractionEditReplyOptions);
+    return;
+  }
+
   const header = `# ${title}`;
   const components = buildYdmProjectsPageComponents(
     header,
     items,
     pageState,
     boardUrl,
+    statusMenuPayload,
   );
   const payload = ydmProjectsMessagePayload(components);
   await interaction.editReply(payload as InteractionEditReplyOptions);

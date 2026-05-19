@@ -75,7 +75,6 @@ export class ResoniteMetricsCommands {
         await interaction.reply({
           content:
             "This server already has a metrics channel. Run **`/resonite metrics unregister`** there first.",
-          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -97,13 +96,11 @@ export class ResoniteMetricsCommands {
       await interaction.reply({
         content:
           `Registered <#${channelId}> for live metrics. The bot will post and periodically edit **one** message here.\nUse **/resonite metrics preview** to toggle thumbnails.`,
-        flags: MessageFlags.Ephemeral,
       });
     } catch (err) {
       loggers.resonite.error("metrics register failed", err, { guildId });
       await interaction.reply({
         content: "Could not save subscription (database error).",
-        flags: MessageFlags.Ephemeral,
       });
     }
   }
@@ -127,19 +124,16 @@ export class ResoniteMetricsCommands {
         await interaction.reply({
           content:
             "No metrics channel is registered. Use **`/resonite metrics register`** in the channel you want.",
-          flags: MessageFlags.Ephemeral,
         });
         return;
       }
       await interaction.reply({
         content: `Metrics channel: <#${guildSettings.metricsChannelId}> · thumbnails **${guildSettings.metricsWorldPreviews ? "on" : "off"}**`,
-        flags: MessageFlags.Ephemeral,
       });
     } catch (err) {
       loggers.resonite.error("metrics status failed", err, { guildId });
       await interaction.reply({
         content: "Could not read subscription.",
-        flags: MessageFlags.Ephemeral,
       });
     }
   }
@@ -161,7 +155,6 @@ export class ResoniteMetricsCommands {
     if (!guildSettings?.metricsChannelId) {
       await interaction.reply({
         content: "This server is not registered for metrics.",
-        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -181,7 +174,6 @@ export class ResoniteMetricsCommands {
       content:
         "Unregister **removes** this server's metrics subscription and stops updating the metrics message. Continue?",
       components: [confirmRow],
-      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -212,13 +204,11 @@ export class ResoniteMetricsCommands {
       });
       await interaction.reply({
         content: `World/session thumbnails **${enabled ? "enabled" : "disabled"}** for the next metrics tick.`,
-        flags: MessageFlags.Ephemeral,
       });
     } catch {
       await interaction.reply({
         content:
           "Could not update preview setting — is this server registered? Use **`/resonite metrics register`** first.",
-        flags: MessageFlags.Ephemeral,
       });
     }
   }
@@ -240,7 +230,6 @@ export class ResoniteMetricsCommands {
       );
     await interaction.reply({
       embeds: [embed],
-      flags: MessageFlags.Ephemeral,
     });
   }
 

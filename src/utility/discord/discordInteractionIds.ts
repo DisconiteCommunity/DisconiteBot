@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Discord component custom IDs and embed-footer state prefixes.
  * Keep these human-readable; they appear in logs and debugging.
  */
@@ -66,6 +66,18 @@ export const YDM_PROJECTS_PAGE_PREFIX = "ydmp:";
 
 export const YDM_PROJECTS_PAGE_PATTERN = /^ydmp:[A-Za-z0-9_-]+$/;
 
+/** YDM GitHub projects: select one issue from a paginated list/search page. */
+export const YDM_PROJECTS_ITEM_SELECT_PREFIX = "ydm_projects_item_sel:";
+
+export const YDM_PROJECTS_ITEM_SELECT_PATTERN =
+  /^ydm_projects_item_sel:[A-Za-z0-9_-]+$/;
+
+/** YDM GitHub projects: select Status column filter on a board/list page. */
+export const YDM_PROJECTS_STATUS_SELECT_PREFIX = "ydm_projects_status_sel:";
+
+export const YDM_PROJECTS_STATUS_SELECT_PATTERN =
+  /^ydm_projects_status_sel:[A-Za-z0-9_-]+$/;
+
 /** Combined issue picker on board overview (`ydm_projects_sel:picker:0:0`) */
 export const YDM_PROJECTS_BOARD_SELECT_PATTERN =
   /^ydm_projects_sel:picker:[01]:[01]$/;
@@ -73,3 +85,18 @@ export const YDM_PROJECTS_BOARD_SELECT_PATTERN =
 /** View one issue in an embed (`ydmpi:board|number|repo|flags`) */
 export const YDM_PROJECTS_ITEM_PATTERN =
   /^ydmpi:[^|]+\|\d+\|[^|]*\|[01]{2}$/;
+
+/** Resonite issue search dashboard controls (`ydmis:action:state`). */
+export const YDM_ISSUES_SEARCH_DASHBOARD_PREFIX = "ydmis:";
+
+export const YDM_ISSUES_SEARCH_DASHBOARD_PATTERN =
+  /^ydmis:[a-z_]+:[A-Za-z0-9_.-]+$/;
+
+/** Resonite repo issue search results pagination (`ydmisr:` + base64url state). */
+export const YDM_ISSUES_REPO_RESULTS_PREFIX = "ydmisr:";
+
+export const YDM_ISSUES_REPO_RESULTS_PATTERN =
+  /^ydmisr:[A-Za-z0-9_-]+$/;
+
+/** Return to `/resonite search github` dashboard from search results. */
+export const YDM_ISSUES_SEARCH_RESET_BUTTON_ID = "ydm_issues_search_reset";

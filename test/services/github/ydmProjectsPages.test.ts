@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   encodeYdmProjectItemId,
   encodeYdmProjectsPageId,
+  filterYdmProjectItemsByStatusColumn,
   parseYdmProjectItemId,
   parseYdmProjectsPageId,
+  YDM_PROJECTS_STATUS_FILTER_NONE,
   ydmProjectsPageCount,
   ydmProjectsPageSlice,
 } from "../../../src/services/github/ydmProjectsPages.js";
@@ -25,12 +27,12 @@ function item(title: string, number: number): YdmProjectItem {
 }
 
 describe("ydmProjectsPageSlice", () => {
-  it("pages five items at a time", () => {
-    const items = Array.from({ length: 12 }, (_, i) => item(`n${i}`, 100 + i));
-    expect(ydmProjectsPageSlice(items, 0)).toHaveLength(5);
-    expect(ydmProjectsPageSlice(items, 1)).toHaveLength(5);
-    expect(ydmProjectsPageSlice(items, 2)).toHaveLength(2);
-    expect(ydmProjectsPageCount(12)).toBe(3);
+  it("pages twenty-five items at a time", () => {
+    const items = Array.from({ length: 60 }, (_, i) => item(`n${i}`, 100 + i));
+    expect(ydmProjectsPageSlice(items, 0)).toHaveLength(25);
+    expect(ydmProjectsPageSlice(items, 1)).toHaveLength(25);
+    expect(ydmProjectsPageSlice(items, 2)).toHaveLength(10);
+    expect(ydmProjectsPageCount(60)).toBe(3);
   });
 });
 
@@ -74,5 +76,63 @@ describe("encodeYdmProjectsPageId", () => {
       d: 1,
       q: "avatar",
     });
+  });
+
+  it("clamps negative page index in custom id to zero", () => {
+    const prevStub = encodeYdmProjectsPageId({
+      v: 1,
+      m: "search",
+      b: "all",
+      p: -1,
+      q: "x",
+    });
+    const currentPage = encodeYdmProjectsPageId({
+      v: 1,
+      m: "search",
+      b: "all",
+      p: 0,
+      q: "x",
+    });
+    expect(prevStub).not.toBe(currentPage);
+    expect(parseYdmProjectsPageId(prevStub)).toEqual({
+      v: 1,
+      m: "search",
+      b: "all",
+      p: 0,
+      q: "x",
+    });
+  });
+
+  it("round-trips status filter on page state", () => {
+    const id = encodeYdmProjectsPageId({
+      v: 1,
+      m: "list",
+      b: "froox",
+      p: 0,
+      statusFilter: "In Progress",
+    });
+    expect(parseYdmProjectsPageId(id)).toEqual({
+      v: 1,
+      m: "list",
+      b: "froox",
+      p: 0,
+      statusFilter: "In Progress",
+    });
+  });
+});
+
+describe("filterYdmProjectItemsByStatusColumn", () => {
+  it("keeps only matching status or blank bucket", () => {
+    const items = [
+      item("a", 1),
+      { ...item("b", 2), status: "Done" },
+      { ...item("c", 3), status: null },
+    ];
+    expect(filterYdmProjectItemsByStatusColumn(items, "In Progress")).toHaveLength(
+      1,
+    );
+    expect(
+      filterYdmProjectItemsByStatusColumn(items, YDM_PROJECTS_STATUS_FILTER_NONE),
+    ).toHaveLength(1);
   });
 });
