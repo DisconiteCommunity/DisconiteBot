@@ -83,7 +83,7 @@ jobs:
           npx prisma --version
 
       - name: Prisma validate
-        run: npx prisma validate --no-color
+        run: npx prisma validate
 
       - name: High-severity audit (informational)
         continue-on-error: true
