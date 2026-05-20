@@ -1,3 +1,4 @@
+import { ContainerBuilder, TextDisplayBuilder } from "@discordjs/builders";
 import { ButtonComponent, Discord } from "discordx";
 import { ButtonInteraction, MessageFlags } from "discord.js";
 import {
@@ -55,17 +56,40 @@ export class ShowcasePublicHandlers {
           : Number(materialized.payload.flags as number);
       const followFlags =
         interactionFollowUpFlagsWithoutEphemeral(rawFlagBits);
-      await interaction.followUp({
-        content: attribution,
-        embeds: materialized.payload.embeds ?? [],
-        components: materialized.payload.components ?? [],
-        ...(followFlags !== undefined ? { flags: followFlags } : {}),
-        allowedMentions: {
-          parse: [],
-          roles: [],
-          users: [interaction.user.id],
-        },
-      });
+
+      /** Discord rejects top-level `content` when {@link MessageFlags.IsComponentsV2} is set. */
+      const usesComponentsV2 =
+        followFlags !== undefined &&
+        (Number(followFlags) & Number(MessageFlags.IsComponentsV2)) !== 0;
+
+      const mentions = {
+        parse: [],
+        roles: [],
+        users: [interaction.user.id],
+      } as const;
+
+      if (usesComponentsV2) {
+        const attributionContainer = new ContainerBuilder().addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(attribution),
+        );
+        await interaction.followUp({
+          embeds: [],
+          components: [
+            attributionContainer,
+            ...(materialized.payload.components ?? []),
+          ],
+          flags: followFlags,
+          allowedMentions: mentions,
+        });
+      } else {
+        await interaction.followUp({
+          content: attribution,
+          embeds: materialized.payload.embeds ?? [],
+          components: materialized.payload.components ?? [],
+          ...(followFlags !== undefined ? { flags: followFlags } : {}),
+          allowedMentions: mentions,
+        });
+      }
 
       await interaction.editReply({
         content:
