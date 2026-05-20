@@ -17,8 +17,6 @@ The Resonite cloud API is read-only and public; it is a WIP and may return 404 o
 
 Optional **`visible`** on slash commands **except** **`/resonite metrics` …** (those are channel-visible only) and **except** commands that inherently need a guild (metrics admin): elsewhere, omit or false → only you see the reply; **`visible: true`** → channel-visible.
 
-On **private (ephemeral)** search/issue previews, replies can include a **Showcase in channel** button: it sends a **non-ephemeral interaction `followUp`** with the same preview plus a short attribution (useful instead of rerunning the command with `visible: true` while you explore). The replay payload is stored server-side for about 45 minutes until the button is used.
-
 ## Slash commands
 
 | Command | Purpose |

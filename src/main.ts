@@ -15,6 +15,7 @@ import { ExceptionConstants } from "./config/constants.js";
 import { BOT_INTENTS, BOT_CONFIG } from "./config/discord.js";
 import { createApiRouter } from "./api/routes.js";
 import { startResoniteMetricsPoller } from "./services/resonite/metrics/resoniteMetricsPoller.js";
+import { slashCommandLoggingGuard } from "./utility/discord/slashCommandLoggingGuard.js";
 
 let env;
 try {
@@ -40,6 +41,7 @@ export const prisma = new PrismaClient({ adapter });
 export const bot = new Client({
   intents: BOT_INTENTS,
   silent: BOT_CONFIG.silent,
+  guards: [slashCommandLoggingGuard],
 });
 
 bot.rest.on("rateLimited", (info) => {

@@ -10,6 +10,7 @@
   },
   "scripts": {
     "postinstall": "prisma generate",
+    "clean": "node -e \"import('node:fs').then(({rmSync})=>rmSync('build',{recursive:true,force:true}))\"",
     "build": "tsc -p ./tsconfig.json && node scripts/copy-prisma.js",
     "dev": "tsx src/main.ts",
     "watch": "nodemon --exec tsx src/main.ts",

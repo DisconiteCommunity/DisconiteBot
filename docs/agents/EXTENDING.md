@@ -10,6 +10,8 @@ Patterns for adding features. See [discordx](https://discordx.js.org/) for decor
 4. Replies are **ephemeral by default** (only the invoker), except **`/resonite metrics` …** slash replies, which stay **channel-visible**. Add `@SlashOption(slashVisibleOption)` from `src/utility/discord/interactionVisibility.js` and pass `visible` into `slashEphemeralReplyFlags(visible)`, `slashDeferEphemeralFlags(visible)`, or compose with `slashEphemeralMessageFlag(visible)` so **`visible: true`** posts in-channel for other commands. Root `@SlashGroup` objects should include `...slashCommandUserInstallScope` from `src/config/discordSlashInstall.js` so commands stay available for **guild install** and **user install** (DM / private channel contexts).
 5. Restart or rebuild — `importx` discovers new files automatically.
 
+Slash command executions are logged automatically by the global guard in `src/main.ts` (`slashCommandLoggingGuard`). No per-command decorator is required.
+
 Use `MessageFlags.Ephemeral` for component error toasts or staff-only messages that should stay private regardless of the slash `visible` option.
 
 Feature-specific slash command reference:

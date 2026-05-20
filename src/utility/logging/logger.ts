@@ -226,4 +226,14 @@ export const loggers = {
     error: (message: string, error?: Error | unknown, data?: unknown) =>
       logger.error("Disconite", message, error, data),
   },
+  commands: {
+    debug: (message: string, data?: unknown) =>
+      logger.debug("Commands", message, data),
+    info: (message: string, data?: unknown) =>
+      logger.info("Commands", message, data),
+    warn: (message: string, data?: unknown) =>
+      logger.warn("Commands", message, data),
+    error: (message: string, error?: Error | unknown, data?: unknown) =>
+      logger.error("Commands", message, error, data),
+  },
 };

@@ -436,7 +436,7 @@ export async function fetchYdmRepoIssueDetails(
 
 /**
  * REST issue fields for {@link syntheticYdmProjectItemFromRepoIssue} when the issue
- * is not on a cached project board (e.g. showcase / repo search fallbacks).
+ * is not on a cached project board (e.g. repo search fallbacks).
  */
 export async function fetchYdmRepoIssueRestSummary(
   repoFullName: string,

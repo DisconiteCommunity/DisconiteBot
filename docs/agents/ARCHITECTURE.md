@@ -34,7 +34,8 @@ Post-build, `scripts/copy-prisma.js` copies the generated Prisma runtime into `b
 
 ## Runtime patterns
 
-- **Logging:** `logger` and `loggers.*` in `src/utility/logging/` (domain prefixes such as `bot`, `resonite`, `database`).
+- **Logging:** `logger` and `loggers.*` in `src/utility/logging/` (domain prefixes such as `bot`, `resonite`, `database`, `commands`).
+- **Slash command logging:** global discordx guard `slashCommandLoggingGuard` in `src/utility/discord/slashCommandLoggingGuard.ts`, registered on the `Client` via `guards` in `src/main.ts` (runs for all `@Slash` handlers; skips buttons, modals, autocomplete, and other interaction types).
 - **Errors:** shared taxonomy (`ConfigError`, `AppError`, …) in `src/utility/errors/`.
 - **Shared instances:** `bot` and `prisma` exported from `main.ts` where modules need them.
 - **Shutdown:** `SIGINT` / `SIGTERM` → graceful disconnect (Prisma + Discord destroy); bounded handling for unhandled rejections and uncaught exceptions.

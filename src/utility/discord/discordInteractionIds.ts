@@ -103,11 +103,3 @@ export const YDM_ISSUES_REPO_PICK_MENU_PATTERN = /^ygh:[A-Za-z0-9_-]+$/;
 
 /** Return to `/resonite search github` dashboard from search results. */
 export const YDM_ISSUES_SEARCH_RESET_BUTTON_ID = "ydm_issues_search_reset";
-
-/**
- * Ephemeral search replies: publish the same preview to everyone in-channel.
- * Payload is keyed in memory:{@link stashShowcasePublicJob} — `custom_id` is only `PREFIX` + UUID.
- */
-export const DISCONITE_BOT_SHOWCASE_PUBLIC_PREFIX = "dc_showcase:";
-export const DISCONITE_BOT_SHOWCASE_PUBLIC_PATTERN =
-  /^dc_showcase:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

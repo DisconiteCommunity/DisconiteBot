@@ -18,7 +18,6 @@ import {
   MessageFlags,
   StringSelectMenuInteraction,
 } from "discord.js";
-import type { InteractionReplyOptions } from "discord.js";
 import { loggers } from "../../../utility/logging/logger.js";
 import { toDiscordStringAutocompleteChoices } from "../../../utility/discord/discordAutocompleteChoices.js";
 import { linkButtonRow } from "../../../utility/discord/linkButtonRow.js";
@@ -57,10 +56,8 @@ import {
   optionalEphemeralInteractionFlags,
   slashEphemeralReplyFlags,
   slashVisibleOption,
-  isSlashReplyPublic,
 } from "../../../utility/discord/interactionVisibility.js";
 import { slashCommandUserInstallScope } from "../../../config/discordSlashInstall.js";
-import { buildShowcaseInChannelRow } from "../../../utility/discord/showcasePublicButton.js";
 
 type TranslatePickState = {
   contexts: string[];
@@ -158,38 +155,21 @@ async function replyTranslationV2(
   languages: string[] | null,
   visible: boolean | undefined,
   edit = false,
-  rawQuery?: string,
 ): Promise<void> {
   const container = buildTranslationContainer(group, languages);
   container.addActionRowComponents(buildTranslationLinkRow(group, languages));
 
-  const showcaseRow = !isSlashReplyPublic(visible)
-    ? buildShowcaseInChannelRow({
-        v: 1,
-        kind: "translate",
-        context: group.context,
-        languages,
-        ...(typeof rawQuery === "string" && rawQuery.trim().length > 0
-          ? { rawQuery: rawQuery.trim() }
-          : {}),
-      })
-    : null;
-
-  const replyComponents = showcaseRow
-    ? ([container, showcaseRow] as unknown as InteractionReplyOptions["components"])
-    : ([container] as unknown as InteractionReplyOptions["components"]);
-
   if (edit && "editReply" in interaction) {
     await interaction.editReply({
       embeds: [],
-      components: replyComponents,
+      components: [container],
       flags: MessageFlags.IsComponentsV2,
     });
     return;
   }
   await (interaction as CommandInteraction).reply({
     embeds: [],
-    components: replyComponents,
+    components: [container],
     flags: translationReplyFlags(visible),
   });
 }
@@ -408,14 +388,7 @@ export class DisconiteCommands {
       }
 
       if (groups.length === 1) {
-        await replyTranslationV2(
-          interaction,
-          groups[0],
-          languages,
-          visible,
-          false,
-          query?.trim(),
-        );
+        await replyTranslationV2(interaction, groups[0], languages, visible);
         return;
       }
 
@@ -485,7 +458,6 @@ export class DisconiteCommands {
         state.languages,
         state.ephemeral ? undefined : true,
         true,
-        state.rawQuery,
       );
     } catch (err) {
       loggers.disconite.error("translate key pick failed", err, {});
@@ -533,20 +505,9 @@ export class DisconiteCommands {
             url: `${forumBase}/search?q=${encodeURIComponent(query.trim())}`,
           },
         ]);
-        const components = linkRow ? [linkRow] : [];
-        if (!isSlashReplyPublic(visible)) {
-          components.push(
-            buildShowcaseInChannelRow({
-              v: 1,
-              kind: "forum_post",
-              query: query.trim(),
-              index: 0,
-            }),
-          );
-        }
         await interaction.reply({
           embeds: [embed],
-          ...(components.length ? { components } : {}),
+          ...(linkRow ? { components: [linkRow] } : {}),
           flags: slashEphemeralReplyFlags(visible),
         });
         return;
@@ -599,20 +560,9 @@ export class DisconiteCommands {
 
       const embed = buildForumPostEmbed(hit);
       const linkRow = linkButtonRow([{ label: "Open post", url: hit.postUrl }]);
-      const components = linkRow ? [linkRow] : [];
-      if (state.ephemeral) {
-        components.push(
-          buildShowcaseInChannelRow({
-            v: 1,
-            kind: "forum_post",
-            query: state.query,
-            index: idx,
-          }),
-        );
-      }
       await interaction.editReply({
         embeds: [embed],
-        components,
+        components: linkRow ? [linkRow] : [],
       });
     } catch (err) {
       loggers.disconite.error("forum post pick failed", err, {});
