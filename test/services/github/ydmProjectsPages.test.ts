@@ -89,6 +89,23 @@ describe("encodeYdmProjectsPageId", () => {
     });
   });
 
+  it("round-trips fromGithubIssuesSearch (GitHub boards list)", () => {
+    const id = encodeYdmProjectsPageId({
+      v: 1,
+      m: "list",
+      b: "froox",
+      p: 1,
+      fromGithubIssuesSearch: true,
+    });
+    expect(parseYdmProjectsPageId(id)).toEqual({
+      v: 1,
+      m: "list",
+      b: "froox",
+      p: 1,
+      fromGithubIssuesSearch: true,
+    });
+  });
+
   it("round-trips list state", () => {
     const id = encodeYdmProjectsPageId({
       v: 1,

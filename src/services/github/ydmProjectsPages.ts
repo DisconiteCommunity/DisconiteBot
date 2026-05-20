@@ -46,6 +46,8 @@ export type YdmProjectsPageState = {
    * Serialized as `ps` in `ydmp:` wire when not the default.
    */
   pageSize?: number;
+  /** `true` when opened from `/resonite search github` boards **Run** (show Reset search like repo results). */
+  fromGithubIssuesSearch?: boolean;
 };
 
 /** Resolved from a “view issue” button (`ydmpi:board|number|repo|flags`). */
@@ -128,6 +130,8 @@ type YdmProjectsPageWire = {
   f?: string;
   /** Page size when not {@link YDM_PROJECTS_PAGE_SIZE} */
   ps?: number;
+  /** GitHub issue search → boards list (`h` = hosted-from-search) */
+  h?: 1;
 };
 
 function wireToBase64(wire: YdmProjectsPageWire): string {
@@ -163,6 +167,7 @@ export function encodeYdmProjectsPageId(state: YdmProjectsPageState): string {
     ...(q ? { q } : {}),
     ...(f ? { f } : {}),
     ...(pageSizeWire ? { ps: pageSizeWire } : {}),
+    ...(state.fromGithubIssuesSearch ? { h: 1 as const } : {}),
   });
 
   for (;;) {
@@ -188,6 +193,7 @@ export function encodeYdmProjectsPageId(state: YdmProjectsPageState): string {
       ...(state.d ? { d: 1 as const } : {}),
       ...(state.i ? { i: 1 as const } : {}),
       ...(pageSizeWire ? { ps: pageSizeWire } : {}),
+      ...(state.fromGithubIssuesSearch ? { h: 1 as const } : {}),
     });
     if (minimal.length > YDM_PROJECTS_PAGE_ID_B64_MAX) {
       throw new Error(
@@ -258,6 +264,9 @@ export function parseYdmProjectsPageId(customId: string): YdmProjectsPageState |
       ...(q ? { q } : {}),
       ...(statusRaw ? { statusFilter: statusRaw.slice(0, 100) } : {}),
       ...(pageSize !== undefined ? { pageSize } : {}),
+      ...((raw as { h?: unknown }).h === 1
+        ? { fromGithubIssuesSearch: true as const }
+        : {}),
     };
   } catch {
     return null;

@@ -64,6 +64,7 @@ import {
   WIKI_PAGE_PICK_STATE_PREFIX,
 } from "../../utility/discord/discordInteractionIds.js";
 import {
+  optionalEphemeralInteractionFlags,
   slashDeferEphemeralFlags,
   slashEphemeralMessageFlag,
   slashEphemeralReplyFlags,
@@ -442,7 +443,7 @@ export class ResoniteSearchCommands {
         await interaction.followUp({
           content:
             "That menu is out of date or invalid. Run `/resonite search wiki` again.",
-          ephemeral: true,
+          ...optionalEphemeralInteractionFlags(true),
         });
         return;
       }
@@ -451,7 +452,7 @@ export class ResoniteSearchCommands {
         await interaction.followUp({
           content:
             "That menu is out of date or invalid. Run `/resonite search wiki` again.",
-          ephemeral: true,
+          ...optionalEphemeralInteractionFlags(true),
         });
         return;
       }
@@ -459,7 +460,7 @@ export class ResoniteSearchCommands {
       if (!page) {
         await interaction.followUp({
           content: `Could not load **${truncateEllipsis(title, 200)}** from the wiki.`,
-          ephemeral: pickState.ephemeral,
+          ...optionalEphemeralInteractionFlags(pickState.ephemeral),
         });
         return;
       }
@@ -482,7 +483,7 @@ export class ResoniteSearchCommands {
       try {
         await interaction.followUp({
           content: "Something went wrong applying your choice.",
-          ephemeral: true,
+          ...optionalEphemeralInteractionFlags(true),
         });
       } catch {
         /* ignore */

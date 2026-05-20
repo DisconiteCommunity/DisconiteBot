@@ -53,6 +53,7 @@ import {
   WEBLATE_KEY_PICK_STATE_PREFIX,
 } from "../../utility/discord/discordInteractionIds.js";
 import {
+  optionalEphemeralInteractionFlags,
   slashEphemeralReplyFlags,
   slashVisibleOption,
 } from "../../utility/discord/interactionVisibility.js";
@@ -427,7 +428,7 @@ export class DisconiteCommands {
         await interaction.followUp({
           content:
             "That menu is out of date. Run `/disconite search translation` again.",
-          ephemeral: true,
+          ...optionalEphemeralInteractionFlags(true),
         });
         return;
       }
@@ -437,7 +438,7 @@ export class DisconiteCommands {
         await interaction.followUp({
           content:
             "That menu is out of date. Run `/disconite search translation` again.",
-          ephemeral: true,
+          ...optionalEphemeralInteractionFlags(true),
         });
         return;
       }
@@ -446,7 +447,7 @@ export class DisconiteCommands {
       if (!group) {
         await interaction.followUp({
           content: `Could not load **${truncateEllipsis(context, 200)}** from Weblate.`,
-          ephemeral: state.ephemeral,
+          ...optionalEphemeralInteractionFlags(state.ephemeral),
         });
         return;
       }
@@ -462,7 +463,7 @@ export class DisconiteCommands {
       loggers.disconite.error("translate key pick failed", err, {});
       await interaction.followUp({
         content: "Something went wrong applying your choice.",
-        ephemeral: true,
+        ...optionalEphemeralInteractionFlags(true),
       });
     }
   }
@@ -542,7 +543,7 @@ export class DisconiteCommands {
         await interaction.followUp({
           content:
             "That menu is out of date. Run `/disconite search forum` again.",
-          ephemeral: true,
+          ...optionalEphemeralInteractionFlags(true),
         });
         return;
       }
@@ -552,7 +553,7 @@ export class DisconiteCommands {
         await interaction.followUp({
           content:
             "Could not load that post. Run `/disconite search forum` again.",
-          ephemeral: state.ephemeral,
+          ...optionalEphemeralInteractionFlags(state.ephemeral),
         });
         return;
       }
@@ -567,7 +568,7 @@ export class DisconiteCommands {
       loggers.disconite.error("forum post pick failed", err, {});
       await interaction.followUp({
         content: "Something went wrong applying your choice.",
-        ephemeral: true,
+        ...optionalEphemeralInteractionFlags(true),
       });
     }
   }

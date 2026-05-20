@@ -364,7 +364,7 @@ export function buildYdmProjectsPageComponents(
     );
   }
 
-  if (pageState.m === "search") {
+  if (pageState.m === "search" || pageState.fromGithubIssuesSearch) {
     container.addActionRowComponents(
       new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()

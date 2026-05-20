@@ -124,6 +124,26 @@ export async function resolveYdmProjectItemForBoardMenu(
   return findYdmProjectItem(items, boardKey, number, repo);
 }
 
+/** Match a cached project item by full repo name and issue number (for GitHub repo search → board-style preview). */
+export async function findYdmProjectItemByRepoAndNumber(
+  repoFullName: string,
+  issueNumber: number,
+): Promise<YdmProjectItem | null> {
+  const normalized = repoFullName.trim().toLowerCase();
+  const { items } = await loadCache();
+  for (const item of items) {
+    const r = item.repo?.trim().toLowerCase();
+    if (
+      r === normalized &&
+      item.number !== null &&
+      item.number === issueNumber
+    ) {
+      return item;
+    }
+  }
+  return null;
+}
+
 /** Titles for slash autocomplete (active items only unless includeDone). */
 export async function ydmProjectTitleAutocomplete(
   board: YdmProjectKey | "all",

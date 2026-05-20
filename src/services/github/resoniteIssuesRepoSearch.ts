@@ -6,8 +6,7 @@
   StringSelectMenuOptionBuilder,
   TextDisplayBuilder,
 } from "@discordjs/builders";
-import { ButtonStyle, MessageFlags } from "discord.js";
-import type { InteractionEditReplyOptions, InteractionReplyOptions } from "discord.js";
+import { ButtonStyle } from "discord.js";
 import { getGitHubToken } from "../../config/github.js";
 import {
   YDM_ISSUES_REPO_PICK_MENU_PREFIX,
@@ -414,63 +413,29 @@ function formatIssueLine(issue: YdmIssueRepoResult): string {
   return `**#${issue.number}** [${issue.title}](${issue.url}) · ${issue.state}${author}${labels}`;
 }
 
-export function buildIssueRepoPickDetailContainer(issue: YdmIssueRepoResult): ContainerBuilder {
-  const lines = [
-    `# #${issue.number} ${truncateEllipsis(issue.title, 200)}`,
-    "",
-    `- **Repo:** ${issue.repo}`,
-    `- **State:** ${issue.state}`,
-    ...(issue.author ? [`- **Author:** @${issue.author}`] : []),
-    ...(issue.updatedAt ? [`- **Updated:** ${issue.updatedAt}`] : []),
-    ...(issue.labels.length
-      ? [`- **Labels:** ${truncateEllipsis(issue.labels.join(", "), 500)}`]
-      : []),
-    "",
-    "_Use **Open on GitHub** for the full description and discussion._",
-  ];
-  const container = new ContainerBuilder()
-    .setAccentColor(
-      issue.state?.toUpperCase() === "OPEN" ? 0x57f287 : 0x5865f2,
-    )
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(truncateEllipsis(lines.join("\n"), 4000)),
-    );
-  if (issue.url.startsWith("http")) {
-    container.addActionRowComponents(
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setStyle(ButtonStyle.Link)
-          .setLabel("Open on GitHub")
-          .setURL(issue.url),
-      ),
-    );
-  }
-  return container;
-}
+type RestIssueForBody = { body?: string | null; state?: string | null };
 
-export function issueRepoPickEditPayload(
-  issue: YdmIssueRepoResult,
-): InteractionEditReplyOptions {
-  return {
-    embeds: [],
-    components: [buildIssueRepoPickDetailContainer(issue)],
-    flags: MessageFlags.IsComponentsV2,
-  };
-}
-
-export function issueRepoPickReplyPayload(
-  issue: YdmIssueRepoResult,
-  opts?: { readonly ephemeral?: boolean },
-): InteractionReplyOptions {
-  let flags = MessageFlags.IsComponentsV2;
-  if (opts?.ephemeral !== false) {
-    flags |= MessageFlags.Ephemeral;
+/** Full issue body for repo-search preview (matches project-board detail view). */
+export async function fetchYdmRepoIssueDetails(
+  repoFullName: string,
+  issueNumber: number,
+): Promise<{ body: string | null; state: string | null } | null> {
+  const parts = repoFullName.split("/");
+  const owner = parts[0]?.trim();
+  const name = parts.slice(1).join("/").trim();
+  if (!owner || !name) {
+    return null;
   }
-  return {
-    embeds: [],
-    components: [buildIssueRepoPickDetailContainer(issue)],
-    flags: flags as InteractionReplyOptions["flags"],
-  };
+  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/issues/${issueNumber}`;
+  try {
+    const data = await githubRestJson<RestIssueForBody>(url);
+    return {
+      body: typeof data.body === "string" ? data.body : null,
+      state: typeof data.state === "string" ? data.state : null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function buildRepoIssuePickSelectRow(
@@ -484,7 +449,7 @@ function buildRepoIssuePickSelectRow(
 
   const menu = new StringSelectMenuBuilder()
     .setCustomId(encodeYdmIssueRepoPickMenuId(state))
-    .setPlaceholder("Open issue preview…")
+    .setPlaceholder("View an issue…")
     .setMinValues(1)
     .setMaxValues(1);
 
@@ -525,10 +490,13 @@ export function buildYdmIssueRepoResultsComponents(
       "",
       `Page **${result.page + 1}** / **${totalPages}** · ${result.totalCount} match(es)`,
       "",
-      "_Pick an issue in the menu below for an ephemeral preview._",
+      "_Select an issue below for the same detailed preview as **team boards** (body + images when available)._",
     );
   } else if (result.items.length > 0) {
-    lines.push("", "_Pick an issue in the menu below for an ephemeral preview._");
+    lines.push(
+      "",
+      "_Select an issue below for the same detailed preview as **team boards**._",
+    );
   }
 
   const container = new ContainerBuilder().addTextDisplayComponents(

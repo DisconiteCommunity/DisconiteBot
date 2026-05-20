@@ -30,6 +30,16 @@ export function slashDeferEphemeralFlags(
   return isSlashReplyPublic(visible) ? {} : { flags: MessageFlags.Ephemeral };
 }
 
+/**
+ * Prefer over deprecated `ephemeral: boolean` on `deferReply`, `followUp`, etc.
+ * When `ephemeral` is false, returns `{}` (channel-visible follow-up).
+ */
+export function optionalEphemeralInteractionFlags(
+  ephemeral: boolean,
+): { flags: MessageFlags.Ephemeral } | Record<string, never> {
+  return ephemeral ? { flags: MessageFlags.Ephemeral } : {};
+}
+
 /** OR with other `MessageFlags` (e.g. `IsComponentsV2`). */
 export function slashEphemeralMessageFlag(
   visible: boolean | undefined,

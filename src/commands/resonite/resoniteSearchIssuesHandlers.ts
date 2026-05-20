@@ -31,7 +31,7 @@ import {
 } from "../../services/github/ydmIssuesSearchDashboard.js";
 import {
   buildYdmIssueRepoResultsComponents,
-  issueRepoPickEditPayload,
+  fetchYdmRepoIssueDetails,
   parseYdmIssueRepoPickMenuId,
   parseYdmIssueRepoResultsPageId,
   searchYdmRepositoryIssues,
@@ -43,6 +43,13 @@ import {
   ydmProjectsMessagePayload,
 } from "../../services/github/ydmProjectsComponentsV2.js";
 import {
+  findYdmProjectItemByRepoAndNumber,
+} from "../../services/github/ydmProjectsCache.js";
+import {
+  syntheticYdmProjectItemFromRepoIssue,
+  ydmProjectItemReplyPayload,
+} from "../../services/github/ydmProjectsItemComponentsV2.js";
+import {
   missingGitHubTokenMessage,
   renderYdmProjectsPage,
 } from "../../services/github/ydmProjectsReply.js";
@@ -53,6 +60,7 @@ import {
   YDM_ISSUES_SEARCH_RESET_BUTTON_ID,
 } from "../../utility/discord/discordInteractionIds.js";
 import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
+import { optionalEphemeralInteractionFlags } from "../../utility/discord/interactionVisibility.js";
 import { loggers } from "../../utility/logging/logger.js";
 
 const modalStateByUser = new Map<
@@ -228,6 +236,7 @@ export class ResoniteSearchIssuesHandlers {
           m: parsedDashboard.state.query ? "search" : "list",
           b: parsedDashboard.state.board ?? "all",
           p: 0,
+          fromGithubIssuesSearch: true,
           ...(parsedDashboard.state.query ? { q: parsedDashboard.state.query } : {}),
         });
         return;
@@ -363,26 +372,65 @@ export class ResoniteSearchIssuesHandlers {
       return;
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    const parentEphemeral =
+      interaction.message?.flags.has(MessageFlags.Ephemeral) ?? true;
+
+    let deferred = false;
     try {
       const results = await searchYdmRepositoryIssues(state, state.p);
       const hit = results.items.find((i) => i.number === issueNumber);
       if (!hit) {
-        await interaction.editReply({
+        await interaction.reply({
           content:
             "That issue isn’t on this results page anymore. Change page or run **Run** again.",
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
-      await interaction.editReply(issueRepoPickEditPayload(hit));
+
+      const boardItem = await findYdmProjectItemByRepoAndNumber(
+        hit.repo,
+        hit.number,
+      );
+      if (boardItem) {
+        await interaction.reply(
+          ydmProjectItemReplyPayload(boardItem, {
+            ephemeral: parentEphemeral,
+          }),
+        );
+        return;
+      }
+
+      await interaction.deferReply(optionalEphemeralInteractionFlags(parentEphemeral));
+      deferred = true;
+
+      const details = await fetchYdmRepoIssueDetails(hit.repo, hit.number);
+      const synthetic = syntheticYdmProjectItemFromRepoIssue(
+        hit,
+        details?.body ?? null,
+      );
+      const payload = ydmProjectItemReplyPayload(synthetic, {
+        ephemeral: false,
+      });
+      await interaction.editReply({
+        embeds: payload.embeds,
+        components: payload.components,
+        flags: MessageFlags.IsComponentsV2,
+      });
     } catch (err) {
       loggers.resonite.error("issues repo pick select failed", err, {
         state,
         issueNumber,
       });
-      await interaction.editReply({
-        content: "Could not load that issue. Try again in a moment.",
-      });
+      const msg = "Could not load that issue. Try again in a moment.";
+      if (deferred) {
+        await interaction.editReply({ content: msg, components: [], embeds: [] });
+      } else {
+        await interaction.reply({
+          content: msg,
+          flags: MessageFlags.Ephemeral,
+        });
+      }
     }
   }
 

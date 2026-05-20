@@ -17,9 +17,11 @@ import {
   GITHUB_MARKDOWN_IMAGE_LIMIT,
   stripGitHubMarkdownImages,
 } from "./githubMarkdownImages.js";
+import type { YdmIssueRepoResult } from "./resoniteIssuesRepoSearch.js";
 import {
   formatYdmItemNumberLabel,
   isInProgressItem,
+  YDM_PROJECT_BOARDS,
   type YdmProjectItem,
 } from "./yellowDogManProjects.js";
 
@@ -99,6 +101,31 @@ export function buildYdmProjectItemComponents(
   }
 
   return [container];
+}
+
+/**
+ * When a repo search hit is not on a team project board, still render like {@link buildYdmProjectItemComponents}
+ * using REST-fetched body text.
+ */
+export function syntheticYdmProjectItemFromRepoIssue(
+  hit: YdmIssueRepoResult,
+  body: string | null,
+): YdmProjectItem {
+  const firstBoard = YDM_PROJECT_BOARDS[0];
+  return {
+    projectKey: firstBoard.key,
+    projectTitle: hit.repo,
+    memberLabel: "Repository search",
+    title: hit.title,
+    number: hit.number,
+    url: hit.url,
+    status: hit.labels.length
+      ? truncateEllipsis(hit.labels.join(", "), 500)
+      : null,
+    state: hit.state,
+    repo: hit.repo,
+    body,
+  };
 }
 
 export function ydmProjectItemReplyPayload(
