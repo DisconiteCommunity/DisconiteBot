@@ -10,6 +10,7 @@ import { isGitHubConfigured } from "../config/github.js";
 import { missingGitHubTokenMessage } from "../services/github/ydmProjectsReply.js";
 import { loggers } from "../utility/logging/logger.js";
 import { truncateEllipsis } from "../utility/text/truncate.js";
+import { interactionFollowUpFlagsWithoutEphemeral } from "../utility/discord/interactionVisibility.js";
 
 @Discord()
 export class ShowcasePublicHandlers {
@@ -36,24 +37,6 @@ export class ShowcasePublicHandlers {
       return;
     }
 
-    if (!interaction.inGuild()) {
-      await interaction.reply({
-        content:
-          "Showcase only works in a **server channel** (not DMs). Use **Make results visible to everyone** on the slash command instead.",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    const channel = interaction.channel;
-    if (!channel || !channel.isSendable()) {
-      await interaction.reply({
-        content: "This channel does not allow the bot to post messages here.",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
@@ -66,11 +49,17 @@ export class ShowcasePublicHandlers {
         `⭐ **Showcase** — ${interaction.user.toString()} shared these results.`,
         2000,
       );
-      await channel.send({
+      const rawFlagBits =
+        materialized.payload.flags === undefined
+          ? undefined
+          : Number(materialized.payload.flags as number);
+      const followFlags =
+        interactionFollowUpFlagsWithoutEphemeral(rawFlagBits);
+      await interaction.followUp({
         content: attribution,
         embeds: materialized.payload.embeds ?? [],
         components: materialized.payload.components ?? [],
-        flags: materialized.payload.flags,
+        ...(followFlags !== undefined ? { flags: followFlags } : {}),
         allowedMentions: {
           parse: [],
           roles: [],
@@ -80,15 +69,15 @@ export class ShowcasePublicHandlers {
 
       await interaction.editReply({
         content:
-          "**Posted** above for everyone in this channel.\n_-# Still only these results — use this instead of rerunning `/search …` publicly when you explore privately._",
+          "**Posted** a channel-visible message via interaction follow-up (not your private preview).\n_-# Nice for sharing without rerunning `/search …` publicly while you browse privately._",
       });
     } catch (err) {
-      loggers.bot.error("showcase public post failed", err, {
+      loggers.bot.error("showcase public follow-up failed", err, {
         jobKind: job.kind,
       });
       await interaction.editReply({
         content:
-          "Could not post this showcase (permission or Discord API error). If it keeps failing, try **Make results visible to everyone** on the slash command instead.",
+          "Could not send this showcase (Discord API error). If it keeps failing, try **Make results visible to everyone** on the slash command instead.",
       });
     }
   }

@@ -62,7 +62,7 @@ async function replyWithYdmItemEmbed(
   const parentEphemeral =
     interaction.message?.flags.has(MessageFlags.Ephemeral) ?? true;
   await interaction.reply(
-    ydmProjectItemReplyPayload(item, { ephemeral: parentEphemeral }),
+    ydmProjectItemReplyPayload(item, { privateReply: parentEphemeral }),
   );
 }
 

@@ -1,4 +1,8 @@
-import { ApplicationCommandOptionType, MessageFlags } from "discord.js";
+import {
+  ApplicationCommandOptionType,
+  MessageFlags,
+  type InteractionReplyOptions,
+} from "discord.js";
 
 /**
  * Optional slash parameter: when `true`, the bot posts a normal channel-visible
@@ -38,6 +42,20 @@ export function optionalEphemeralInteractionFlags(
   ephemeral: boolean,
 ): { flags: MessageFlags.Ephemeral } | Record<string, never> {
   return ephemeral ? { flags: MessageFlags.Ephemeral } : {};
+}
+
+/**
+ * Channel-visible follow-up: converts flags to numeric bits (no deprecated `ephemeral` field),
+ * drops {@link MessageFlags.Ephemeral}, and returns Discord.js–compatible interaction flags.
+ */
+export function interactionFollowUpFlagsWithoutEphemeral(
+  flagBits: number | undefined,
+): InteractionReplyOptions["flags"] | undefined {
+  if (flagBits === undefined) {
+    return undefined;
+  }
+  const cleared = flagBits & ~Number(MessageFlags.Ephemeral);
+  return cleared === 0 ? undefined : (cleared as InteractionReplyOptions["flags"]);
 }
 
 /** OR with other `MessageFlags` (e.g. `IsComponentsV2`). */

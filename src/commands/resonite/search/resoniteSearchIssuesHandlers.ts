@@ -395,7 +395,7 @@ export class ResoniteSearchIssuesHandlers {
       if (boardItem) {
         await interaction.reply(
           ydmProjectItemReplyPayload(boardItem, {
-            ephemeral: parentEphemeral,
+            privateReply: parentEphemeral,
           }),
         );
         return;
@@ -410,7 +410,7 @@ export class ResoniteSearchIssuesHandlers {
         details?.body ?? null,
       );
       const payload = ydmProjectItemReplyPayload(synthetic, {
-        ephemeral: parentEphemeral,
+        privateReply: parentEphemeral,
       });
       await interaction.editReply({
         embeds: payload.embeds,

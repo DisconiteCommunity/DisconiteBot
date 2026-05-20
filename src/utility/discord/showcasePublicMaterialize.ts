@@ -79,7 +79,7 @@ async function ghIssuePayload(
     };
   }
   const built = ydmProjectItemReplyPayload(item, {
-    ephemeral: false,
+    privateReply: false,
     showcase: false,
   });
   return {

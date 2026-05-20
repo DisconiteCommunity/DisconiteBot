@@ -130,17 +130,22 @@ export function syntheticYdmProjectItemFromRepoIssue(
   };
 }
 
+/**
+ * Discord interaction replies must use {@link MessageFlags.Ephemeral}, not `ephemeral: boolean`.
+ *
+ * `privateReply` — when omitted or true, reply is ephemeral (only invoker).
+ */
 export function ydmProjectItemReplyPayload(
   item: YdmProjectItem,
-  opts?: { readonly ephemeral?: boolean; showcase?: boolean },
+  opts?: { readonly privateReply?: boolean; showcase?: boolean },
 ): InteractionReplyOptions {
   let n = MessageFlags.IsComponentsV2;
-  const ephemeral = opts?.ephemeral !== false;
-  if (ephemeral) {
+  const hideFromOthers = opts?.privateReply !== false;
+  if (hideFromOthers) {
     n |= MessageFlags.Ephemeral;
   }
   const base = buildYdmProjectItemComponents(item);
-  const allowShowcase = ephemeral && opts?.showcase !== false;
+  const allowShowcase = hideFromOthers && opts?.showcase !== false;
   const components =
     allowShowcase && item.number !== null && item.number > 0
       ? [
