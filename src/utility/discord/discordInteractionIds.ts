@@ -56,7 +56,7 @@ import { YDM_BOARD_KEY_PATTERN_SOURCE } from "../../services/github/yellowDogMan
 /** YDM GitHub projects: pick a board (`ydm_projects_pick:froox`, …) */
 export const YDM_PROJECTS_PICK_BOARD_PREFIX = "ydm_projects_pick:";
 
-/** Optional `:doneBit:inProgressBit` suffixes (0 or 1) from `/projects list`. */
+/** Optional `:doneBit:inProgressBit` suffixes (0 or 1) on board-browse buttons (e.g. `/resonite search github` boards UI). */
 export const YDM_PROJECTS_PICK_BOARD_PATTERN = new RegExp(
   `^ydm_projects_pick:(${YDM_BOARD_KEY_PATTERN_SOURCE})(?::[01])?(?::[01])?$`,
 );

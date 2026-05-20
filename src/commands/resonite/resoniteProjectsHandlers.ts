@@ -187,7 +187,7 @@ export class ResoniteProjectsHandlers {
       });
       await replyWithYdmItemEmbed(interaction, item);
     } catch (err) {
-      loggers.resonite.error("projects list select failed", err, {
+      loggers.resonite.error("YDM board page item select failed", err, {
         state,
         selected,
       });
