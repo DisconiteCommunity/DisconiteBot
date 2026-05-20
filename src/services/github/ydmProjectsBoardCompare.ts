@@ -71,23 +71,35 @@ export function parseYdmIssueSelectValue(
 ): { boardKey: YdmProjectKey; number: number; repo: string | null } | null {
   const parts = value.split("|");
   if (parts.length === 2) {
-    const boardKey = parts[0]!;
+    const boardKey = parts[0];
+    const numberPart = parts[1];
+    if (boardKey === undefined || numberPart === undefined) {
+      return null;
+    }
     if (!isYdmProjectKey(boardKey)) {
       return null;
     }
-    const number = parseInt(parts[1]!, 10);
+    const number = parseInt(numberPart, 10);
     if (!Number.isFinite(number) || number < 1) {
       return null;
     }
     return { boardKey, number, repo: null };
   }
   if (parts.length === 3) {
-    const boardKey = parts[0]!;
-    const repo = parts[1]!;
+    const boardKey = parts[0];
+    const repo = parts[1];
+    const numberPart = parts[2];
+    if (
+      boardKey === undefined ||
+      repo === undefined ||
+      numberPart === undefined
+    ) {
+      return null;
+    }
     if (!isYdmProjectKey(boardKey) || !repo) {
       return null;
     }
-    const number = parseInt(parts[2]!, 10);
+    const number = parseInt(numberPart, 10);
     if (!Number.isFinite(number) || number < 1) {
       return null;
     }
@@ -114,7 +126,7 @@ export function pickYdmIssueSelectOptions(
     let added = false;
     for (const { board, items } of perBoard) {
       const item = items[round];
-      if (!item || item.number == null) {
+      if (!item || item.number === null) {
         continue;
       }
       picked.push({

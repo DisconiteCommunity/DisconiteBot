@@ -207,12 +207,16 @@ export function issueNumberFromGitHubUrl(url: string | null): number | null {
   if (!m) {
     return null;
   }
-  const n = parseInt(m[1]!, 10);
+  const raw = m[1];
+  if (raw === undefined) {
+    return null;
+  }
+  const n = parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 export function formatYdmItemNumberLabel(item: YdmProjectItem): string {
-  if (item.number != null) {
+  if (item.number !== null) {
     return `#${item.number}`;
   }
   return "Draft";
@@ -571,7 +575,7 @@ export function formatProjectItemLine(item: YdmProjectItem): string {
   const repoBit = item.repo ? ` (${item.repo})` : "";
   const link = item.url ? `[${item.title}](${item.url})` : item.title;
   const prefix =
-    item.number != null
+    item.number !== null
       ? `**${formatYdmItemNumberLabel(item)}**`
       : "**Draft**";
   return `${prefix} ${link}${repoBit}${statusBit}`;

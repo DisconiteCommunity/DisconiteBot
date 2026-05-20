@@ -19,10 +19,13 @@ permissions:
   actions: write
 
 env:
-  NODE_VERSION: "20.x"
+  # App/toolchain (engines allow >=20 locally; CI tracks current LTS)
+  NODE_VERSION: "22.x"
   DATABASE_URL: mysql://root:root@127.0.0.1:3306/disconite_ci
   NPM_CONFIG_FUND: false
   NPM_CONFIG_AUDIT: false
+  # Run checkout/cache/setup-node on Actions' Node 24 runtime (silences Node 20 deprecation)
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   prepare:
@@ -63,6 +66,7 @@ jobs:
               'package-lock.json',
               'yarn.lock',
               'prisma/schema.prisma',
+              'prisma.config.ts',
               'vitest.config.ts',
               'eslint.config.js',
               'tsconfig.json')
@@ -81,6 +85,10 @@ jobs:
         run: |
           node --version
           npx prisma --version
+
+      # postinstall runs prisma generate only after npm ci/install; cache hits skip install.
+      - name: Prisma Client (generate)
+        run: npx prisma generate
 
       - name: Prisma validate
         run: npx prisma validate
@@ -118,6 +126,7 @@ jobs:
               'package-lock.json',
               'yarn.lock',
               'prisma/schema.prisma',
+              'prisma.config.ts',
               'vitest.config.ts',
               'eslint.config.js',
               'tsconfig.json')
@@ -127,6 +136,9 @@ jobs:
         if: steps.deps.outputs.cache-hit != 'true'
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Prisma Client (generate)
+        run: npx prisma generate
 
       - run: npm run lint
 
@@ -160,6 +172,7 @@ jobs:
               'package-lock.json',
               'yarn.lock',
               'prisma/schema.prisma',
+              'prisma.config.ts',
               'vitest.config.ts',
               'eslint.config.js',
               'tsconfig.json')
@@ -169,6 +182,9 @@ jobs:
         if: steps.deps.outputs.cache-hit != 'true'
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Prisma Client (generate)
+        run: npx prisma generate
 
       - name: Vitest run
         run: |
@@ -236,6 +252,7 @@ jobs:
               'package-lock.json',
               'yarn.lock',
               'prisma/schema.prisma',
+              'prisma.config.ts',
               'vitest.config.ts',
               'eslint.config.js',
               'tsconfig.json')
@@ -245,6 +262,9 @@ jobs:
         if: steps.deps.outputs.cache-hit != 'true'
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Prisma Client (generate)
+        run: npx prisma generate
 
       - run: npm run build
 
@@ -302,6 +322,7 @@ jobs:
               'package-lock.json',
               'yarn.lock',
               'prisma/schema.prisma',
+              'prisma.config.ts',
               'vitest.config.ts',
               'eslint.config.js',
               'tsconfig.json')
@@ -311,6 +332,9 @@ jobs:
         if: steps.deps.outputs.cache-hit != 'true'
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Prisma Client (generate)
+        run: npx prisma generate
 
       - run: npx prisma migrate deploy
 
@@ -347,7 +371,7 @@ jobs:
             echo ""
             echo "| Stage | Outcome |"
             echo "| :--- | :---: |"
-            echo "| Dependencies + Prisma validate | **$PREPARE** |"
+            echo "| Dependencies, Prisma generate & validate | **$PREPARE** |"
             echo "| ESLint | **$LINT** |"
             echo "| Vitest + coverage artifacts | **$TEST** |"
             echo "| TypeScript build artifact | **$BUILD** |"

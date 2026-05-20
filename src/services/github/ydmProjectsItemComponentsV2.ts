@@ -25,7 +25,7 @@ import {
 
 function buildYdmProjectItemMarkdown(item: YdmProjectItem): string {
   const title =
-    item.number != null
+    item.number !== null
       ? `# ${formatYdmItemNumberLabel(item)} ${item.title}`
       : `# ${item.title}`;
 

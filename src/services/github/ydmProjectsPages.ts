@@ -290,7 +290,7 @@ export function parseYdmProjectItemId(
   if (!boardKey || !isYdmProjectKey(boardKey) || !flags || flags.length !== 2) {
     return null;
   }
-  const number = parseInt(numberRaw!, 10);
+  const number = parseInt(numberRaw, 10);
   if (!Number.isFinite(number) || number < 1) {
     return null;
   }

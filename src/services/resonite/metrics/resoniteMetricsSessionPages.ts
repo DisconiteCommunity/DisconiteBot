@@ -16,7 +16,11 @@ export function parseMetricsSessionsPageId(customId: string): number | null {
   if (!m) {
     return null;
   }
-  const n = parseInt(m[1]!, 10);
+  const raw = m[1];
+  if (raw === undefined) {
+    return null;
+  }
+  const n = parseInt(raw, 10);
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
