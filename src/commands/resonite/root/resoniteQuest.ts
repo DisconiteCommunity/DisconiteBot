@@ -7,8 +7,8 @@ import {
 import {
   slashEphemeralMessageFlag,
   slashVisibleOption,
-} from "../../utility/discord/interactionVisibility.js";
-import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
+} from "../../../utility/discord/interactionVisibility.js";
+import { slashCommandUserInstallScope } from "../../../config/discordSlashInstall.js";
 
 /** Accent visible as Components v2 container sidebar (subdued slate). */
 const QUEST_REPLY_ACCENT = 0x64748b;

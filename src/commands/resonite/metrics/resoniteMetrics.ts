@@ -10,14 +10,14 @@ import {
   MessageFlags,
   PermissionFlagsBits,
 } from "discord.js";
-import { prisma } from "../../main.js";
-import { pruneGuildSettingsIfUnused } from "../../services/guildSettings/pruneGuildSettingsIfUnused.js";
+import { prisma } from "../../../main.js";
+import { pruneGuildSettingsIfUnused } from "../../../services/guildSettings/pruneGuildSettingsIfUnused.js";
 import {
   METRICS_UNREGISTER_CANCEL_BUTTON_ID,
   METRICS_UNREGISTER_CONFIRM_BUTTON_ID,
-} from "../../utility/discord/discordInteractionIds.js";
-import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
-import { loggers } from "../../utility/logging/logger.js";
+} from "../../../utility/discord/discordInteractionIds.js";
+import { slashCommandUserInstallScope } from "../../../config/discordSlashInstall.js";
+import { loggers } from "../../../utility/logging/logger.js";
 
 function requireGuildAdminContext(
   interaction: CommandInteraction | ButtonInteraction,

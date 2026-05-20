@@ -6,32 +6,32 @@ import {
   type InteractionEditReplyOptions,
   type InteractionReplyOptions,
 } from "discord.js";
-import { isGitHubConfigured } from "../../config/github.js";
-import { GitHubApiError } from "../../services/github/githubGraphql.js";
-import { parseYdmIssueSelectValue } from "../../services/github/ydmProjectsBoardCompare.js";
+import { isGitHubConfigured } from "../../../config/github.js";
+import { GitHubApiError } from "../../../services/github/githubGraphql.js";
+import { parseYdmIssueSelectValue } from "../../../services/github/ydmProjectsBoardCompare.js";
 import {
   buildYdmBoardPickerComponents,
   buildYdmProjectsErrorComponents,
   parseYdmIssuePickerSelectMenuId,
   ydmProjectsMessagePayload,
-} from "../../services/github/ydmProjectsComponentsV2.js";
+} from "../../../services/github/ydmProjectsComponentsV2.js";
 import {
   getYdmProjectsCacheSnapshot,
   resolveYdmProjectItemByRef,
   resolveYdmProjectItemForBoardMenu,
-} from "../../services/github/ydmProjectsCache.js";
-import { ydmProjectItemReplyPayload } from "../../services/github/ydmProjectsItemComponentsV2.js";
+} from "../../../services/github/ydmProjectsCache.js";
+import { ydmProjectItemReplyPayload } from "../../../services/github/ydmProjectsItemComponentsV2.js";
 import {
   missingGitHubTokenMessage,
   renderYdmProjectsPage,
-} from "../../services/github/ydmProjectsReply.js";
+} from "../../../services/github/ydmProjectsReply.js";
 import {
   parseYdmProjectItemId,
   parseYdmProjectsBoardParam,
   parseYdmProjectsPageId,
   YDM_PROJECTS_STATUS_FILTER_ALL,
   type YdmProjectsPageState,
-} from "../../services/github/ydmProjectsPages.js";
+} from "../../../services/github/ydmProjectsPages.js";
 import {
   YDM_PROJECTS_BOARD_SELECT_PATTERN,
   YDM_PROJECTS_ITEM_SELECT_PATTERN,
@@ -42,10 +42,10 @@ import {
   YDM_PROJECTS_PICK_BOARD_PATTERN,
   YDM_PROJECTS_STATUS_SELECT_PATTERN,
   YDM_PROJECTS_STATUS_SELECT_PREFIX,
-} from "../../utility/discord/discordInteractionIds.js";
-import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
-import { loggers } from "../../utility/logging/logger.js";
-import { truncateEllipsis } from "../../utility/text/truncate.js";
+} from "../../../utility/discord/discordInteractionIds.js";
+import { slashCommandUserInstallScope } from "../../../config/discordSlashInstall.js";
+import { loggers } from "../../../utility/logging/logger.js";
+import { truncateEllipsis } from "../../../utility/text/truncate.js";
 
 async function replyWithYdmItemEmbed(
   interaction: ButtonInteraction | StringSelectMenuInteraction,

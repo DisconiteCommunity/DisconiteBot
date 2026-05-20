@@ -1,6 +1,6 @@
 # Disconite commands
 
-Slash commands under `/disconite`. Shared logic: `src/services/disconite/weblate/`, `src/services/disconite/discourse/`.
+Slash commands under `/disconite`. Command modules: `src/commands/disconite/search/` (`/disconite search` …) and `src/commands/disconite/root/` (`/disconite translate`, `/disconite forum`). Shared logic: `src/services/disconite/weblate/`, `src/services/disconite/discourse/`.
 
 Commands are registered for **guild install** and **user install** (DM / private channel). Enable **User Install** in the [Discord Developer Portal](https://discord.com/developers/applications) → **Installation**; see [Discord setup](DISCORD-SETUP.md).
 

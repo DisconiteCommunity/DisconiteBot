@@ -6,13 +6,13 @@ import {
 import {
   getDisconiteForumBaseUrl,
   getDisconiteForumWelcomePostUrl,
-} from "../../config/disconite.js";
-import { linkButtonRow } from "../../utility/discord/linkButtonRow.js";
+} from "../../../config/disconite.js";
+import { linkButtonRow } from "../../../utility/discord/linkButtonRow.js";
 import {
   slashEphemeralReplyFlags,
   slashVisibleOption,
-} from "../../utility/discord/interactionVisibility.js";
-import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
+} from "../../../utility/discord/interactionVisibility.js";
+import { slashCommandUserInstallScope } from "../../../config/discordSlashInstall.js";
 
 @Discord()
 @SlashGroup({

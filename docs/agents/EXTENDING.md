@@ -4,7 +4,7 @@ Patterns for adding features. See [discordx](https://discordx.js.org/) for decor
 
 ## Commands
 
-1. Add a file under `src/commands/<feature>/`.
+1. Add a file under `src/commands/<mainCommand>/<subgroup>/` (for example `src/commands/resonite/search/myCommand.ts`, or `src/commands/disconite/root/…` when the class only uses the top-level `disconite` / `resonite` group with no nested `@SlashGroup`).
 2. Export a class with `@Discord()` and `@Slash({ name, description })` (or `@SlashGroup`).
 3. Handler method: slash options first, then `CommandInteraction`; use `AutocompleteInteraction` for `@SlashOption({ autocomplete: fn })`.
 4. Replies are **ephemeral by default** (only the invoker), except **`/resonite metrics` …** slash replies, which stay **channel-visible**. Add `@SlashOption(slashVisibleOption)` from `src/utility/discord/interactionVisibility.js` and pass `visible` into `slashEphemeralReplyFlags(visible)`, `slashDeferEphemeralFlags(visible)`, or compose with `slashEphemeralMessageFlag(visible)` so **`visible: true`** posts in-channel for other commands. Root `@SlashGroup` objects should include `...slashCommandUserInstallScope` from `src/config/discordSlashInstall.js` so commands stay available for **guild install** and **user install** (DM / private channel contexts).

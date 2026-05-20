@@ -18,46 +18,46 @@ import {
   MessageFlags,
   StringSelectMenuInteraction,
 } from "discord.js";
-import { loggers } from "../../utility/logging/logger.js";
-import { toDiscordStringAutocompleteChoices } from "../../utility/discord/discordAutocompleteChoices.js";
-import { linkButtonRow } from "../../utility/discord/linkButtonRow.js";
+import { loggers } from "../../../utility/logging/logger.js";
+import { toDiscordStringAutocompleteChoices } from "../../../utility/discord/discordAutocompleteChoices.js";
+import { linkButtonRow } from "../../../utility/discord/linkButtonRow.js";
 import {
   buildTranslationContainer,
   buildTranslationLinkRow,
   translationReplyFlags,
-} from "../../utility/discord/translationComponentsV2.js";
-import { truncateEllipsis } from "../../utility/text/truncate.js";
-import { getDisconiteForumBaseUrl } from "../../config/disconite.js";
-import { WeblateApiError } from "../../services/disconite/weblate/client.js";
+} from "../../../utility/discord/translationComponentsV2.js";
+import { truncateEllipsis } from "../../../utility/text/truncate.js";
+import { getDisconiteForumBaseUrl } from "../../../config/disconite.js";
+import { WeblateApiError } from "../../../services/disconite/weblate/client.js";
 import {
   parseLanguageFilter,
   weblateLanguagesAutocomplete,
-} from "../../services/disconite/weblate/languages.js";
+} from "../../../services/disconite/weblate/languages.js";
 import {
   getWeblateKeyGroup,
   searchWeblateUnits,
   weblateKeyAutocomplete,
   type WeblateKeyGroup,
-} from "../../services/disconite/weblate/searchUnits.js";
-import { DiscourseApiError } from "../../services/disconite/discourse/client.js";
+} from "../../../services/disconite/weblate/searchUnits.js";
+import { DiscourseApiError } from "../../../services/disconite/discourse/client.js";
 import {
   forumQueryAutocomplete,
   getForumPostHit,
   searchForumPosts,
   type ForumPostHit,
-} from "../../services/disconite/discourse/searchPosts.js";
+} from "../../../services/disconite/discourse/searchPosts.js";
 import {
   FORUM_POST_PICK_MENU_ID,
   FORUM_POST_PICK_STATE_PREFIX,
   WEBLATE_KEY_PICK_MENU_ID,
   WEBLATE_KEY_PICK_STATE_PREFIX,
-} from "../../utility/discord/discordInteractionIds.js";
+} from "../../../utility/discord/discordInteractionIds.js";
 import {
   optionalEphemeralInteractionFlags,
   slashEphemeralReplyFlags,
   slashVisibleOption,
-} from "../../utility/discord/interactionVisibility.js";
-import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
+} from "../../../utility/discord/interactionVisibility.js";
+import { slashCommandUserInstallScope } from "../../../config/discordSlashInstall.js";
 
 type TranslatePickState = {
   contexts: string[];

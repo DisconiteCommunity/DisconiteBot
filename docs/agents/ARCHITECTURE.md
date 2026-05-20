@@ -22,8 +22,8 @@ On **`clientReady`**, slash commands publish via `bot.initApplicationCommands()`
 |------|------|
 | `src/main.ts` | Entry: env, Prisma, Discord, importx, Koa, shutdown |
 | `src/config/` | Zod env, Discord intents/flags, constants |
-| `src/commands/` | Slash command classes by feature folder |
-| `src/events/` | Discord event handlers |
+| `src/commands/` | Slash commands: `src/commands/<mainCommand>/<subgroup>/*.ts` (`root/` = subcommands directly under `/resonite` or `/disconite`; named folders match `@SlashGroup`, e.g. `search/`, `metrics/`, `projects/`) |
+| `src/events/` | Discord handlers under `discord/` |
 | `src/api/` | Koa HTTP (`createApiRouter()`; not discordx) |
 | `src/services/` | Feature logic (Disconite, Resonite, guild settings, …) |
 | `src/utility/` | Logging, errors, text, Discord helpers (+ tests) |

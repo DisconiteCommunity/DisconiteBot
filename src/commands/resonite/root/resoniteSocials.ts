@@ -12,29 +12,29 @@ import {
   CommandInteraction,
   MessageFlags,
 } from "discord.js";
-import { loggers } from "../../utility/logging/logger.js";
+import { loggers } from "../../../utility/logging/logger.js";
 import {
   buildSocialsListContainer,
   buildSocialsPreviewContainer,
   buildSocialsPreviewUnavailableContainer,
   socialsEditFlags,
   socialsReplyFlags,
-} from "../../utility/discord/socialsComponentsV2.js";
+} from "../../../utility/discord/socialsComponentsV2.js";
 import {
   slashEphemeralReplyFlags,
   slashVisibleOption,
-} from "../../utility/discord/interactionVisibility.js";
-import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
-import { truncateEllipsis } from "../../utility/text/truncate.js";
-import { fetchPlatformPreview } from "../../services/resonite/team/platformPreview.js";
+} from "../../../utility/discord/interactionVisibility.js";
+import { slashCommandUserInstallScope } from "../../../config/discordSlashInstall.js";
+import { truncateEllipsis } from "../../../utility/text/truncate.js";
+import { fetchPlatformPreview } from "../../../services/resonite/team/platformPreview.js";
 import {
   SOCIALS_BACK_BUTTON_ID_PATTERN,
   SOCIALS_PREVIEW_BUTTON_ID_PATTERN,
-} from "../../utility/discord/discordInteractionIds.js";
+} from "../../../utility/discord/discordInteractionIds.js";
 import {
   parseSocialBackButtonId,
   parseSocialPreviewButtonId,
-} from "../../services/resonite/team/platformPreviewIds.js";
+} from "../../../services/resonite/team/platformPreviewIds.js";
 import {
   getAvailablePlatformsForMember,
   matchTeamMemberFromQuery,
@@ -43,7 +43,7 @@ import {
   resolveMemberPlatformLinks,
   teamMemberAutocomplete,
   type TeamMember,
-} from "../../services/resonite/team/resoniteTeamSocials.js";
+} from "../../../services/resonite/team/resoniteTeamSocials.js";
 
 async function socialsAutocomplete(
   interaction: AutocompleteInteraction,

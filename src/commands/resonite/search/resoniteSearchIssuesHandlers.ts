@@ -16,7 +16,7 @@ import {
   TextInputStyle,
   type InteractionEditReplyOptions,
 } from "discord.js";
-import { isGitHubConfigured } from "../../config/github.js";
+import { isGitHubConfigured } from "../../../config/github.js";
 import {
   buildYdmIssuesSearchDashboardComponents,
   defaultYdmIssuesSearchState,
@@ -28,7 +28,7 @@ import {
   YDM_ISSUES_MODAL_INPUT_ID,
   YDM_ISSUES_QUERY_MODAL_ID,
   type YdmIssuesSearchState,
-} from "../../services/github/ydmIssuesSearchDashboard.js";
+} from "../../../services/github/ydmIssuesSearchDashboard.js";
 import {
   buildYdmIssueRepoResultsComponents,
   fetchYdmRepoIssueDetails,
@@ -37,31 +37,31 @@ import {
   searchYdmRepositoryIssues,
   YDM_ISSUES_DEFAULT_REPO,
   type YdmIssuesRepo,
-} from "../../services/github/resoniteIssuesRepoSearch.js";
+} from "../../../services/github/resoniteIssuesRepoSearch.js";
 import {
   buildYdmProjectsErrorComponents,
   ydmProjectsMessagePayload,
-} from "../../services/github/ydmProjectsComponentsV2.js";
+} from "../../../services/github/ydmProjectsComponentsV2.js";
 import {
   findYdmProjectItemByRepoAndNumber,
-} from "../../services/github/ydmProjectsCache.js";
+} from "../../../services/github/ydmProjectsCache.js";
 import {
   syntheticYdmProjectItemFromRepoIssue,
   ydmProjectItemReplyPayload,
-} from "../../services/github/ydmProjectsItemComponentsV2.js";
+} from "../../../services/github/ydmProjectsItemComponentsV2.js";
 import {
   missingGitHubTokenMessage,
   renderYdmProjectsPage,
-} from "../../services/github/ydmProjectsReply.js";
+} from "../../../services/github/ydmProjectsReply.js";
 import {
   YDM_ISSUES_REPO_PICK_MENU_PATTERN,
   YDM_ISSUES_REPO_RESULTS_PATTERN,
   YDM_ISSUES_SEARCH_DASHBOARD_PATTERN,
   YDM_ISSUES_SEARCH_RESET_BUTTON_ID,
-} from "../../utility/discord/discordInteractionIds.js";
-import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
-import { optionalEphemeralInteractionFlags } from "../../utility/discord/interactionVisibility.js";
-import { loggers } from "../../utility/logging/logger.js";
+} from "../../../utility/discord/discordInteractionIds.js";
+import { slashCommandUserInstallScope } from "../../../config/discordSlashInstall.js";
+import { optionalEphemeralInteractionFlags } from "../../../utility/discord/interactionVisibility.js";
+import { loggers } from "../../../utility/logging/logger.js";
 
 const modalStateByUser = new Map<
   string,

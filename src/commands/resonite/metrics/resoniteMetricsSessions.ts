@@ -8,23 +8,23 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
-import { prisma } from "../../main.js";
-import { pickTopSessionsForEmbeds } from "../../services/resonite/metrics/resoniteMetricsFormat.js";
-import { fetchResoniteSessions } from "../../services/resonite/metrics/resoniteMetricsFetch.js";
+import { prisma } from "../../../main.js";
+import { pickTopSessionsForEmbeds } from "../../../services/resonite/metrics/resoniteMetricsFormat.js";
+import { fetchResoniteSessions } from "../../../services/resonite/metrics/resoniteMetricsFetch.js";
 import {
   metricsSessionsPageCount,
   parseMetricsSessionsPageId,
   parseMetricsSessionsPageInput,
-} from "../../services/resonite/metrics/resoniteMetricsSessionPages.js";
-import { renderMetricsSessionsPage } from "../../services/resonite/metrics/resoniteMetricsSessionsReply.js";
+} from "../../../services/resonite/metrics/resoniteMetricsSessionPages.js";
+import { renderMetricsSessionsPage } from "../../../services/resonite/metrics/resoniteMetricsSessionsReply.js";
 import {
   METRICS_SESSIONS_GOTO_BUTTON_ID,
   METRICS_SESSIONS_GOTO_INPUT_ID,
   METRICS_SESSIONS_GOTO_MODAL_ID,
   METRICS_SESSIONS_PAGE_PATTERN,
-} from "../../utility/discord/discordInteractionIds.js";
-import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
-import { loggers } from "../../utility/logging/logger.js";
+} from "../../../utility/discord/discordInteractionIds.js";
+import { slashCommandUserInstallScope } from "../../../config/discordSlashInstall.js";
+import { loggers } from "../../../utility/logging/logger.js";
 
 @Discord()
 @SlashGroup({

@@ -19,18 +19,18 @@ import {
   StringSelectMenuInteraction,
   type InteractionReplyOptions,
 } from "discord.js";
-import { loggers } from "../../utility/logging/logger.js";
-import { toDiscordStringAutocompleteChoices } from "../../utility/discord/discordAutocompleteChoices.js";
-import { linkButtonRow } from "../../utility/discord/linkButtonRow.js";
-import { truncateEllipsis } from "../../utility/text/truncate.js";
-import { isGitHubConfigured } from "../../config/github.js";
+import { loggers } from "../../../utility/logging/logger.js";
+import { toDiscordStringAutocompleteChoices } from "../../../utility/discord/discordAutocompleteChoices.js";
+import { linkButtonRow } from "../../../utility/discord/linkButtonRow.js";
+import { truncateEllipsis } from "../../../utility/text/truncate.js";
+import { isGitHubConfigured } from "../../../config/github.js";
 import {
   defaultYdmIssuesSearchState,
   renderYdmIssuesSearchDashboard,
-} from "../../services/github/ydmIssuesSearchDashboard.js";
-import { missingGitHubTokenMessage } from "../../services/github/ydmProjectsReply.js";
-import { ResoniteApiError } from "../../services/resonite/api/api.js";
-import { parseRecordInput } from "../../services/resonite/records/recordLinks.js";
+} from "../../../services/github/ydmIssuesSearchDashboard.js";
+import { missingGitHubTokenMessage } from "../../../services/github/ydmProjectsReply.js";
+import { ResoniteApiError } from "../../../services/resonite/api/api.js";
+import { parseRecordInput } from "../../../services/resonite/records/recordLinks.js";
 import {
   buildRecordInventoryJsonApiUrl,
   buildGoResoniteSessionUrl,
@@ -44,12 +44,12 @@ import {
   fetchSession,
   summarizeRecordPayload,
   summarizeSessionPayload,
-} from "../../services/resonite/records/records.js";
+} from "../../../services/resonite/records/records.js";
 import {
   buildUsersSearchApiUrl,
   searchResoniteUsernamesAutocomplete,
   searchUsersByName,
-} from "../../services/resonite/users/users.js";
+} from "../../../services/resonite/users/users.js";
 import {
   fetchWikiPageWikitextIfExists,
   resolveWikiImageUrlFromWikitext,
@@ -58,19 +58,19 @@ import {
   wikiArticleUrl,
   wikiOpenSearchForAutocomplete,
   wikitextToDiscordMarkdown,
-} from "../../services/resonite/wiki/wikiSearch.js";
+} from "../../../services/resonite/wiki/wikiSearch.js";
 import {
   WIKI_PAGE_PICK_MENU_ID,
   WIKI_PAGE_PICK_STATE_PREFIX,
-} from "../../utility/discord/discordInteractionIds.js";
+} from "../../../utility/discord/discordInteractionIds.js";
 import {
   optionalEphemeralInteractionFlags,
   slashDeferEphemeralFlags,
   slashEphemeralMessageFlag,
   slashEphemeralReplyFlags,
   slashVisibleOption,
-} from "../../utility/discord/interactionVisibility.js";
-import { slashCommandUserInstallScope } from "../../config/discordSlashInstall.js";
+} from "../../../utility/discord/interactionVisibility.js";
+import { slashCommandUserInstallScope } from "../../../config/discordSlashInstall.js";
 
 const WIKI_PREVIEW_CHARACTER_MIN = 500;
 const WIKI_PREVIEW_CHARACTER_MAX = 1500;

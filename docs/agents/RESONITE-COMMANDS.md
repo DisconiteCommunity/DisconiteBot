@@ -1,6 +1,6 @@
 # Resonite commands
 
-Slash commands under `/resonite`. Shared logic under `src/services/resonite/`:
+Slash commands under `/resonite`. Command modules live under `src/commands/resonite/<subgroup>/` (`search`, `metrics`, `projects`, or `root` for `/resonite` subcommands without a nested group). Shared logic under `src/services/resonite/`:
 
 Commands are registered for **guild install** and **user install** (DM / private channel). Enable **User Install** in the [Discord Developer Portal](https://discord.com/developers/applications) → **Installation**; see [Discord setup](DISCORD-SETUP.md). **`/resonite metrics` …** admin commands still require a **server** and **Administrator**.
 
