@@ -32,20 +32,19 @@ function item(title: string, number: number): YdmProjectItem {
 }
 
 describe("ydmProjectsPageSlice", () => {
-  it("pages twenty-five items at a time by default", () => {
+  it("pages ten items at a time by default", () => {
     const items = Array.from({ length: 60 }, (_, i) => item(`n${i}`, 100 + i));
-    expect(ydmProjectsPageSlice(items, 0)).toHaveLength(25);
-    expect(ydmProjectsPageSlice(items, 1)).toHaveLength(25);
-    expect(ydmProjectsPageSlice(items, 2)).toHaveLength(10);
-    expect(ydmProjectsPageCount(60)).toBe(3);
+    expect(ydmProjectsPageSlice(items, 0)).toHaveLength(10);
+    expect(ydmProjectsPageSlice(items, 1)).toHaveLength(10);
+    expect(ydmProjectsPageSlice(items, 5)).toHaveLength(10);
+    expect(ydmProjectsPageCount(60)).toBe(6);
   });
 
-  it("accepts a custom page size", () => {
+  it("accepts a custom page size override", () => {
     const items = Array.from({ length: 25 }, (_, i) => item(`n${i}`, 200 + i));
-    expect(ydmProjectsPageSlice(items, 0, 10)).toHaveLength(10);
-    expect(ydmProjectsPageSlice(items, 1, 10)).toHaveLength(10);
-    expect(ydmProjectsPageSlice(items, 2, 10)).toHaveLength(5);
-    expect(ydmProjectsPageCount(25, 10)).toBe(3);
+    expect(ydmProjectsPageSlice(items, 0, 5)).toHaveLength(5);
+    expect(ydmProjectsPageSlice(items, 1, 5)).toHaveLength(5);
+    expect(ydmProjectsPageCount(25, 5)).toBe(5);
   });
 });
 
@@ -71,13 +70,13 @@ describe("encodeYdmProjectItemId", () => {
 });
 
 describe("encodeYdmProjectsPageId", () => {
-  it("round-trips optional page size for GitHub search boards view", () => {
+  it("round-trips a non-default page size in wire state", () => {
     const id = encodeYdmProjectsPageId({
       v: 1,
       m: "search",
       b: "all",
       p: 0,
-      pageSize: 10,
+      pageSize: 5,
       q: "bug",
     });
     expect(parseYdmProjectsPageId(id)).toEqual({
@@ -85,7 +84,7 @@ describe("encodeYdmProjectsPageId", () => {
       m: "search",
       b: "all",
       p: 0,
-      pageSize: 10,
+      pageSize: 5,
       q: "bug",
     });
   });

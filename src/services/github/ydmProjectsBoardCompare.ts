@@ -9,6 +9,7 @@ import {
   type YdmProjectItem,
   type YdmProjectKey,
 } from "./yellowDogManProjects.js";
+import { YDM_PROJECTS_PAGE_SIZE } from "./ydmProjectsPages.js";
 
 export type YdmBoardCompareRow = {
   board: YdmProjectBoard;
@@ -52,7 +53,7 @@ export type YdmIssueSelectOption = {
 };
 
 /** Discord string selects allow at most 25 options per menu. */
-export const YDM_ISSUE_PICKER_OPTION_LIMIT = 25;
+export const YDM_ISSUE_PICKER_OPTION_LIMIT = YDM_PROJECTS_PAGE_SIZE;
 
 export function encodeYdmIssueSelectValue(
   boardKey: YdmProjectKey,

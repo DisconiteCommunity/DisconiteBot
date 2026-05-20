@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { YDM_ISSUES_REPO_RESULTS_PREFIX } from "../../../src/utility/discord/discordInteractionIds.js";
 import {
   buildYdmIssuesRepoSearchQuery,
+  encodeYdmIssueRepoPickMenuId,
   encodeYdmIssueRepoResultsPageId,
   labelWindow,
+  parseYdmIssueRepoPickMenuId,
   parseYdmIssueRepoResultsPageId,
 } from "../../../src/services/github/resoniteIssuesRepoSearch.js";
 
@@ -106,6 +108,27 @@ describe("YDM issues repo results state", () => {
       p: 2,
       repo: "Yellow-Dog-Man/Locale",
       query: "locale",
+    });
+  });
+
+  it("round-trips ygh repo issue pick menu id like pagination payloads", () => {
+    const state = {
+      v: 1 as const,
+      p: 1,
+      repo: "Yellow-Dog-Man/Resonite-Issues" as const,
+      query: "crash",
+      author: "Someone",
+      labels: ["needs triage", "bug"],
+    };
+    const pickId = encodeYdmIssueRepoPickMenuId(state);
+    expect(pickId.startsWith("ygh:")).toBe(true);
+    expect(parseYdmIssueRepoPickMenuId(pickId)).toEqual(
+      parseYdmIssueRepoResultsPageId(encodeYdmIssueRepoResultsPageId(state)),
+    );
+    expect(parseYdmIssueRepoPickMenuId(pickId)).toMatchObject({
+      v: 1,
+      repo: state.repo,
+      p: state.p,
     });
   });
 });

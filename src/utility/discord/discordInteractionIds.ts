@@ -96,5 +96,10 @@ export const YDM_ISSUES_REPO_RESULTS_PREFIX = "ydmisr:";
 export const YDM_ISSUES_REPO_RESULTS_PATTERN =
   /^ydmisr:[A-Za-z0-9_-]+$/;
 
+/** Resonite repo issue search results: pick list row (`ygh:` + same base64 as `ydmisr:` payloads). */
+export const YDM_ISSUES_REPO_PICK_MENU_PREFIX = "ygh:";
+
+export const YDM_ISSUES_REPO_PICK_MENU_PATTERN = /^ygh:[A-Za-z0-9_-]+$/;
+
 /** Return to `/resonite search github` dashboard from search results. */
 export const YDM_ISSUES_SEARCH_RESET_BUTTON_ID = "ydm_issues_search_reset";

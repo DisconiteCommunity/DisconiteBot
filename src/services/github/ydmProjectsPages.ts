@@ -5,14 +5,11 @@ import {
   type YdmProjectKey,
 } from "./yellowDogManProjects.js";
 
-/** Discord string selects allow at most 25 options; match page size to one menu per page. */
-export const YDM_PROJECTS_PAGE_SIZE = 25;
+/** Items per paginated board list/search page (Discord selects allow up to 25 options per menu). */
+export const YDM_PROJECTS_PAGE_SIZE = 10;
 
-/**
- * Page size when the board list is opened from **`/resonite search` `github`** (boards scope).
- * Smaller than {@link YDM_PROJECTS_PAGE_SIZE} so each message stays readable.
- */
-export const YDM_ISSUES_SEARCH_BOARDS_PAGE_SIZE = 10;
+/** @deprecated Use {@link YDM_PROJECTS_PAGE_SIZE}; kept for call sites that referenced the github-search constant. */
+export const YDM_ISSUES_SEARCH_BOARDS_PAGE_SIZE = YDM_PROJECTS_PAGE_SIZE;
 
 /**
  * Max base64url payload length after the `ydmp:` prefix so the full string fits Discord’s

@@ -2,11 +2,15 @@
   ActionRowBuilder,
   ButtonBuilder,
   ContainerBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
   TextDisplayBuilder,
 } from "@discordjs/builders";
-import { ButtonStyle } from "discord.js";
+import { ButtonStyle, MessageFlags } from "discord.js";
+import type { InteractionEditReplyOptions, InteractionReplyOptions } from "discord.js";
 import { getGitHubToken } from "../../config/github.js";
 import {
+  YDM_ISSUES_REPO_PICK_MENU_PREFIX,
   YDM_ISSUES_REPO_RESULTS_PREFIX,
   YDM_ISSUES_SEARCH_RESET_BUTTON_ID,
 } from "../../utility/discord/discordInteractionIds.js";
@@ -325,6 +329,30 @@ export function encodeYdmIssueRepoResultsPageId(
   return `${prefix}${encodeUtf8ToBase64Url(JSON.stringify({ v: 1, p: 0, ri: 0 }))}`;
 }
 
+/** Shorter prefix than {@link YDM_ISSUES_REPO_RESULTS_PREFIX}; payload matches pagination buttons (`ydmisr:` + base64). */
+export function encodeYdmIssueRepoPickMenuId(
+  state: YdmIssueRepoResultsState,
+): string {
+  return `${YDM_ISSUES_REPO_PICK_MENU_PREFIX}${encodeYdmIssueRepoResultsPageId(state).slice(
+    YDM_ISSUES_REPO_RESULTS_PREFIX.length,
+  )}`;
+}
+
+export function parseYdmIssueRepoPickMenuId(
+  customId: string,
+): YdmIssueRepoResultsState | null {
+  if (!customId.startsWith(YDM_ISSUES_REPO_PICK_MENU_PREFIX)) {
+    return null;
+  }
+  const b64 = customId.slice(YDM_ISSUES_REPO_PICK_MENU_PREFIX.length);
+  if (!b64) {
+    return null;
+  }
+  return parseYdmIssueRepoResultsPageId(
+    `${YDM_ISSUES_REPO_RESULTS_PREFIX}${b64}`,
+  );
+}
+
 export function parseYdmIssueRepoResultsPageId(
   customId: string,
 ): YdmIssueRepoResultsState | null {
@@ -386,6 +414,92 @@ function formatIssueLine(issue: YdmIssueRepoResult): string {
   return `**#${issue.number}** [${issue.title}](${issue.url}) · ${issue.state}${author}${labels}`;
 }
 
+export function buildIssueRepoPickDetailContainer(issue: YdmIssueRepoResult): ContainerBuilder {
+  const lines = [
+    `# #${issue.number} ${truncateEllipsis(issue.title, 200)}`,
+    "",
+    `- **Repo:** ${issue.repo}`,
+    `- **State:** ${issue.state}`,
+    ...(issue.author ? [`- **Author:** @${issue.author}`] : []),
+    ...(issue.updatedAt ? [`- **Updated:** ${issue.updatedAt}`] : []),
+    ...(issue.labels.length
+      ? [`- **Labels:** ${truncateEllipsis(issue.labels.join(", "), 500)}`]
+      : []),
+    "",
+    "_Use **Open on GitHub** for the full description and discussion._",
+  ];
+  const container = new ContainerBuilder()
+    .setAccentColor(
+      issue.state?.toUpperCase() === "OPEN" ? 0x57f287 : 0x5865f2,
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(truncateEllipsis(lines.join("\n"), 4000)),
+    );
+  if (issue.url.startsWith("http")) {
+    container.addActionRowComponents(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setStyle(ButtonStyle.Link)
+          .setLabel("Open on GitHub")
+          .setURL(issue.url),
+      ),
+    );
+  }
+  return container;
+}
+
+export function issueRepoPickEditPayload(
+  issue: YdmIssueRepoResult,
+): InteractionEditReplyOptions {
+  return {
+    embeds: [],
+    components: [buildIssueRepoPickDetailContainer(issue)],
+    flags: MessageFlags.IsComponentsV2,
+  };
+}
+
+export function issueRepoPickReplyPayload(
+  issue: YdmIssueRepoResult,
+  opts?: { readonly ephemeral?: boolean },
+): InteractionReplyOptions {
+  let flags = MessageFlags.IsComponentsV2;
+  if (opts?.ephemeral !== false) {
+    flags |= MessageFlags.Ephemeral;
+  }
+  return {
+    embeds: [],
+    components: [buildIssueRepoPickDetailContainer(issue)],
+    flags: flags as InteractionReplyOptions["flags"],
+  };
+}
+
+function buildRepoIssuePickSelectRow(
+  state: YdmIssueRepoResultsState,
+  readonlyItems: readonly YdmIssueRepoResult[],
+): ActionRowBuilder<StringSelectMenuBuilder> | null {
+  const itemsWithNumber = readonlyItems.filter((x) => x.number > 0);
+  if (itemsWithNumber.length === 0) {
+    return null;
+  }
+
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(encodeYdmIssueRepoPickMenuId(state))
+    .setPlaceholder("Open issue preview…")
+    .setMinValues(1)
+    .setMaxValues(1);
+
+  for (const issue of itemsWithNumber) {
+    const value = String(issue.number);
+    menu.addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel(truncateEllipsis(`#${issue.number} · ${issue.title}`, 100))
+        .setValue(value)
+        .setDescription(truncateEllipsis(issue.repo, 100)),
+    );
+  }
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+}
+
 export function buildYdmIssueRepoResultsComponents(
   state: YdmIssueRepoResultsState,
   result: { totalCount: number; items: readonly YdmIssueRepoResult[]; page: number },
@@ -410,12 +524,20 @@ export function buildYdmIssueRepoResultsComponents(
     lines.push(
       "",
       `Page **${result.page + 1}** / **${totalPages}** · ${result.totalCount} match(es)`,
+      "",
+      "_Pick an issue in the menu below for an ephemeral preview._",
     );
+  } else if (result.items.length > 0) {
+    lines.push("", "_Pick an issue in the menu below for an ephemeral preview._");
   }
 
   const container = new ContainerBuilder().addTextDisplayComponents(
     new TextDisplayBuilder().setContent(truncateEllipsis(lines.join("\n"), 4000)),
   );
+  const hitPickRow = buildRepoIssuePickSelectRow(state, result.items);
+  if (hitPickRow) {
+    container.addActionRowComponents(hitPickRow);
+  }
   if (totalPages > 0) {
     container.addActionRowComponents(
       new ActionRowBuilder<ButtonBuilder>().addComponents(
