@@ -1,3 +1,6 @@
+# CI pipeline: warmed dependency cache → lint / Vitest+coverage / build / DB migrations → gated summary + artifacts.
+# Commit package-lock.json for reproducible `npm ci` and stable cache fingerprints (repo standard is npm; yarn.lock busts installs only).
+
 name: CI
 
 on:
@@ -10,66 +13,257 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# write: caches + artifact upload; read-only clones stay via contents: read
+permissions:
+  contents: read
+  actions: write
+
 env:
+  NODE_VERSION: "20.x"
   DATABASE_URL: mysql://root:root@127.0.0.1:3306/disconite_ci
+  NPM_CONFIG_FUND: false
+  NPM_CONFIG_AUDIT: false
 
 jobs:
-  lint:
-    name: Lint
+  prepare:
+    name: Prep — deps + Prisma validate
     runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lockfile mode
+        id: locks
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "mode=npm_ci" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=npm_install" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            yarn.lock
+
+      # Single fingerprint for all stages (no restore-keys partials — avoids stale installs).
+      - uses: actions/cache@v4
+        id: deps
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: >-
+            deps-${{ runner.os }}-node-${{ env.NODE_VERSION }}-v2-${{
+              hashFiles(
+              'package.json',
+              'package-lock.json',
+              'yarn.lock',
+              'prisma/schema.prisma',
+              'vitest.config.ts',
+              'eslint.config.js',
+              'tsconfig.json')
+            }}
+
+      - name: npm ci (when package-lock.json exists)
+        if: steps.locks.outputs.mode == 'npm_ci' && steps.deps.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: npm install (fallback when lockfile absent)
+        if: steps.locks.outputs.mode == 'npm_install' && steps.deps.outputs.cache-hit != 'true'
+        run: npm install
+
+      - name: Toolchain sanity
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: |
+          node --version
+          npx prisma --version
+
+      - name: Prisma validate
+        run: npx prisma validate --no-color
+
+      - name: High-severity audit (informational)
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+  lint:
+    name: Lint — ESLint
+    runs-on: ubuntu-latest
+    needs: prepare
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            yarn.lock
 
-      - name: Install dependencies
-        run: npm install
+      - uses: actions/cache@v4
+        id: deps
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: >-
+            deps-${{ runner.os }}-node-${{ env.NODE_VERSION }}-v2-${{
+              hashFiles(
+              'package.json',
+              'package-lock.json',
+              'yarn.lock',
+              'prisma/schema.prisma',
+              'vitest.config.ts',
+              'eslint.config.js',
+              'tsconfig.json')
+            }}
 
-      - name: ESLint
-        run: npm run lint
+      - name: Install if cache miss
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - run: npm run lint
 
   test:
-    name: Test
+    name: Test — Vitest + coverage + JSON report
     runs-on: ubuntu-latest
+    needs: prepare
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            yarn.lock
 
-      - name: Install dependencies
-        run: npm install
+      - uses: actions/cache@v4
+        id: deps
+        with:
+          path: |
+            node_modules
+            ~/.npm
+            .vite
+          key: >-
+            deps-${{ runner.os }}-node-${{ env.NODE_VERSION }}-v2-${{
+              hashFiles(
+              'package.json',
+              'package-lock.json',
+              'yarn.lock',
+              'prisma/schema.prisma',
+              'vitest.config.ts',
+              'eslint.config.js',
+              'tsconfig.json')
+            }}
 
-      - name: Unit tests
-        run: npm run test -- --run
+      - name: Install if cache miss
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Vitest run
+        run: |
+          mkdir -p test-results
+          npm run test -- \
+            --run \
+            --coverage \
+            --reporter=verbose \
+            --reporter=json \
+            --outputFile=test-results/vitest-results.json
+
+      - name: Upload Vitest JSON
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/vitest-results.json
+          if-no-files-found: warn
+
+      - name: Upload coverage
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: coverage
+          if-no-files-found: warn
+
+      - name: Attach coverage totals to job summary (when emitted)
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            echo "## Coverage (json-summary)" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   build:
-    name: Build
+    name: Build — TypeScript + Prisma copy
     runs-on: ubuntu-latest
+    needs: prepare
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            yarn.lock
 
-      - name: Install dependencies
-        run: npm install
+      - uses: actions/cache@v4
+        id: deps
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: >-
+            deps-${{ runner.os }}-node-${{ env.NODE_VERSION }}-v2-${{
+              hashFiles(
+              'package.json',
+              'package-lock.json',
+              'yarn.lock',
+              'prisma/schema.prisma',
+              'vitest.config.ts',
+              'eslint.config.js',
+              'tsconfig.json')
+            }}
 
-      - name: Typecheck and compile
-        run: npm run build
+      - name: Install if cache miss
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build
+          retention-days: 14
+
+      - name: Syntax-check compiled entry (no boot)
+        run: node --check build/main.js
 
   database:
-    name: Prisma migrations
+    name: Database — migrations + drift
     runs-on: ubuntu-latest
+    needs: prepare
     env:
       SHADOW_DATABASE_URL: mysql://root:root@127.0.0.1:3306/disconite_ci_shadow
+
     services:
       mariadb:
         image: mariadb:11.4
@@ -83,30 +277,115 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            yarn.lock
 
-      - name: Install dependencies
-        run: npm install
+      - uses: actions/cache@v4
+        id: deps
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: >-
+            deps-${{ runner.os }}-node-${{ env.NODE_VERSION }}-v2-${{
+              hashFiles(
+              'package.json',
+              'package-lock.json',
+              'yarn.lock',
+              'prisma/schema.prisma',
+              'vitest.config.ts',
+              'eslint.config.js',
+              'tsconfig.json')
+            }}
 
-      - name: Apply migrations
-        run: npx prisma migrate deploy
+      - name: Install if cache miss
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
-      - name: Create shadow database
+      - run: npx prisma migrate deploy
+
+      - name: Shadow DB for diff
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq default-mysql-client
           mysql -h 127.0.0.1 -P 3306 -u root -proot \
             -e "CREATE DATABASE IF NOT EXISTS disconite_ci_shadow;"
 
-      - name: Verify schema matches migrations
-        run: >-
+      - run: >-
           npx prisma migrate diff
           --from-migrations prisma/migrations
           --to-config-datasource
           --exit-code
+
+  ci-summary:
+    name: Summary — rollup & gate
+    if: always()
+    needs: [prepare, lint, test, build, database]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Job matrix
+        env:
+          PREPARE: ${{ needs.prepare.result }}
+          LINT: ${{ needs.lint.result }}
+          TEST: ${{ needs.test.result }}
+          BUILD: ${{ needs.build.result }}
+          DB: ${{ needs.database.result }}
+        run: |
+          {
+            echo "## CI results"
+            echo ""
+            echo "| Stage | Outcome |"
+            echo "| :--- | :---: |"
+            echo "| Dependencies + Prisma validate | **$PREPARE** |"
+            echo "| ESLint | **$LINT** |"
+            echo "| Vitest + coverage artifacts | **$TEST** |"
+            echo "| TypeScript build artifact | **$BUILD** |"
+            echo "| MariaDB migrations / drift | **$DB** |"
+            echo ""
+            echo 'Artifacts are named with prefixes vitest-, coverage-, and build- (followed by run id and attempt).'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: vitest-*
+          path: ./_vitest_art/
+          merge-multiple: true
+
+      - name: Vitest counts in summary
+        continue-on-error: true
+        run: |
+          f=$(find ./_vitest_art -name vitest-results.json -print -quit 2>/dev/null || true)
+          if [ -z "${f:-}" ]; then exit 0; fi
+          if ! command -v jq >/dev/null 2>&1; then exit 0; fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Vitest (from artifact JSON)" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '
+            [
+              "**Suites**: total `\(.numTotalTestSuites)` · failed `\(.numFailedTestSuites)`",
+              "**Tests**: passed `\(.numPassedTests)` · failed `\(.numFailedTests)` · pending `\(.numPendingTests)`",
+              "**Overall**: " + (if .success then "success" else "failed" end)
+            ] | map("- " + .) | join("\n")
+          ' "$f" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce green tree
+        if: >-
+          needs.prepare.result != 'success'
+          || needs.lint.result != 'success'
+          || needs.test.result != 'success'
+          || needs.build.result != 'success'
+          || needs.database.result != 'success'
+        run: |
+          echo "::error::Required CI jobs did not complete successfully."
+          exit 1

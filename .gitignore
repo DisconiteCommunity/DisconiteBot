@@ -11,3 +11,6 @@ src/generated
 
 # Local upstream clones / reference (not part of the app)
 .upstream/
+
+# Local Vitest reporters / probes (CI writes these under predictable paths too)
+test-results/

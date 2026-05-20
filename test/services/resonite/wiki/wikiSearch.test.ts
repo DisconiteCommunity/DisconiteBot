@@ -1,9 +1,22 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { fetchWikiPageWikitextIfExists } from "../../../../src/services/resonite/wiki/wikiSearch.js";
+import { loggers } from "../../../../src/utility/logging/logger.js";
 
 describe("fetchWikiPageWikitextIfExists", () => {
+  beforeEach(() => {
+    vi.spyOn(loggers.resonite, "warn").mockImplementation(() => {});
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("returns null on HTTP errors instead of throwing", async () => {
