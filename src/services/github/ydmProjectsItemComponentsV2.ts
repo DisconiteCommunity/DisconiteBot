@@ -12,6 +12,8 @@ import {
   type InteractionReplyOptions,
 } from "discord.js";
 import { truncateEllipsis } from "../../utility/text/truncate.js";
+import { buildShowcaseInChannelRow } from "../../utility/discord/showcasePublicButton.js";
+import type { ShowcasePublicJobV1 } from "../../utility/discord/showcasePublicStore.js";
 import {
   extractGitHubMarkdownImageUrls,
   GITHUB_MARKDOWN_IMAGE_LIMIT,
@@ -130,15 +132,35 @@ export function syntheticYdmProjectItemFromRepoIssue(
 
 export function ydmProjectItemReplyPayload(
   item: YdmProjectItem,
-  opts?: { readonly ephemeral?: boolean },
+  opts?: { readonly ephemeral?: boolean; showcase?: boolean },
 ): InteractionReplyOptions {
   let n = MessageFlags.IsComponentsV2;
-  if (opts?.ephemeral !== false) {
+  const ephemeral = opts?.ephemeral !== false;
+  if (ephemeral) {
     n |= MessageFlags.Ephemeral;
   }
+  const base = buildYdmProjectItemComponents(item);
+  const allowShowcase = ephemeral && opts?.showcase !== false;
+  const components =
+    allowShowcase && item.number !== null && item.number > 0
+      ? [
+          ...base,
+          buildShowcaseInChannelRow({
+            v: 1,
+            kind: "gh_issue",
+            ref: {
+              boardKey: item.projectKey,
+              number: item.number,
+              repo: item.repo ?? null,
+              includeDone: true,
+              inProgressOnly: false,
+            },
+          } satisfies ShowcasePublicJobV1),
+        ]
+      : base;
   return {
     embeds: [],
-    components: buildYdmProjectItemComponents(item),
+    components,
     flags: n as InteractionReplyOptions["flags"],
   };
 }

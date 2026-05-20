@@ -69,8 +69,11 @@ import {
   slashEphemeralMessageFlag,
   slashEphemeralReplyFlags,
   slashVisibleOption,
+  isSlashReplyPublic,
 } from "../../../utility/discord/interactionVisibility.js";
 import { slashCommandUserInstallScope } from "../../../config/discordSlashInstall.js";
+import { buildShowcaseInChannelRow } from "../../../utility/discord/showcasePublicButton.js";
+import { buildWikiPreviewEmbed } from "../../../utility/discord/wikiShowcasePayload.js";
 
 const WIKI_PREVIEW_CHARACTER_MIN = 500;
 const WIKI_PREVIEW_CHARACTER_MAX = 1500;
@@ -184,26 +187,19 @@ async function replyWikiExactV2(
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(content))
     .addActionRowComponents(linkRow);
 
+  const showcaseRow = !isSlashReplyPublic(visible)
+    ? buildShowcaseInChannelRow({
+        v: 1,
+        kind: "wiki_exact_v2",
+        title: exact.title,
+        previewLimit,
+      })
+    : null;
+
   await interaction.reply({
-    components: [container],
+    components: showcaseRow ? [container, showcaseRow] : [container],
     flags: wikiReplyFlags(visible, true),
   });
-}
-
-function buildWikiPreviewEmbed(
-  canonicalTitle: string,
-  wikitext: string,
-  previewLimit: number,
-  imageUrl: string | null,
-): EmbedBuilder {
-  const md = wikitextToDiscordMarkdown(wikitext, previewLimit);
-  const embed = new EmbedBuilder()
-    .setTitle(truncateEllipsis(canonicalTitle, 256))
-    .setDescription(truncateEllipsis(md, previewLimit));
-  if (imageUrl) {
-    embed.setImage(imageUrl);
-  }
-  return embed;
 }
 
 function buildWikiPickListMessage(
@@ -474,9 +470,20 @@ export class ResoniteSearchCommands {
       const linkRow = linkButtonRow([
         { label: "Open full page", url: wikiArticleUrl(page.title) },
       ]);
+      const components = linkRow ? [linkRow] : [];
+      if (pickState.ephemeral) {
+        components.push(
+          buildShowcaseInChannelRow({
+            v: 1,
+            kind: "wiki_embed",
+            title: page.title,
+            previewLimit: pickState.previewLimit,
+          }),
+        );
+      }
       await interaction.editReply({
         embeds: [embed],
-        components: linkRow ? [linkRow] : [],
+        components,
       });
     } catch (err) {
       loggers.resonite.error("wiki pick menu failed", err, {});
@@ -558,9 +565,20 @@ export class ResoniteSearchCommands {
         { label: "Users search (API)", url: buildUsersSearchApiUrl(username) },
       ]);
 
+      const components = row ? [row] : [];
+      if (!isSlashReplyPublic(visible)) {
+        components.push(
+          buildShowcaseInChannelRow({
+            v: 1,
+            kind: "account_users",
+            username: username.trim(),
+          }),
+        );
+      }
+
       await interaction.reply({
         embeds: [embed],
-        ...(row ? { components: [row] } : {}),
+        ...(components.length ? { components } : {}),
         flags: slashEphemeralReplyFlags(visible),
       });
     } catch (err) {
@@ -628,9 +646,19 @@ export class ResoniteSearchCommands {
             url: buildSessionResoniteComUrl(sum.sessionId),
           },
         ]);
+        const components = row ? [row] : [];
+        if (!isSlashReplyPublic(visible)) {
+          components.push(
+            buildShowcaseInChannelRow({
+              v: 1,
+              kind: "record_url",
+              url: url.trim(),
+            }),
+          );
+        }
         await interaction.reply({
           embeds: [embed],
-          ...(row ? { components: [row] } : {}),
+          ...(components.length ? { components } : {}),
           flags: slashEphemeralReplyFlags(visible),
         });
         return;
@@ -726,9 +754,19 @@ export class ResoniteSearchCommands {
         });
       }
       const row = linkButtonRow(apiLinks);
+      const components = row ? [row] : [];
+      if (!isSlashReplyPublic(visible)) {
+        components.push(
+          buildShowcaseInChannelRow({
+            v: 1,
+            kind: "record_url",
+            url: url.trim(),
+          }),
+        );
+      }
       await interaction.reply({
         embeds: [embed],
-        ...(row ? { components: [row] } : {}),
+        ...(components.length ? { components } : {}),
         flags: slashEphemeralReplyFlags(visible),
       });
     } catch (err) {

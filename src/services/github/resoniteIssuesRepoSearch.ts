@@ -413,26 +413,80 @@ function formatIssueLine(issue: YdmIssueRepoResult): string {
   return `**#${issue.number}** [${issue.title}](${issue.url}) · ${issue.state}${author}${labels}`;
 }
 
-type RestIssueForBody = { body?: string | null; state?: string | null };
+type RestIssueForBody = {
+  title?: string;
+  html_url?: string;
+  body?: string | null;
+  state?: string | null;
+  user?: { login?: string } | null;
+  labels?: readonly { name?: string }[] | null;
+};
 
 /** Full issue body for repo-search preview (matches project-board detail view). */
 export async function fetchYdmRepoIssueDetails(
   repoFullName: string,
   issueNumber: number,
 ): Promise<{ body: string | null; state: string | null } | null> {
+  const full = await fetchYdmRepoIssueRestSummary(repoFullName, issueNumber);
+  if (!full) {
+    return null;
+  }
+  return { body: full.body, state: full.state };
+}
+
+/**
+ * REST issue fields for {@link syntheticYdmProjectItemFromRepoIssue} when the issue
+ * is not on a cached project board (e.g. showcase / repo search fallbacks).
+ */
+export async function fetchYdmRepoIssueRestSummary(
+  repoFullName: string,
+  issueNumber: number,
+): Promise<{
+  readonly hit: YdmIssueRepoResult;
+  readonly body: string | null;
+  readonly state: string | null;
+} | null> {
   const parts = repoFullName.split("/");
   const owner = parts[0]?.trim();
   const name = parts.slice(1).join("/").trim();
-  if (!owner || !name) {
+  if (!owner || !name || !Number.isFinite(issueNumber) || issueNumber < 1) {
     return null;
   }
   const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/issues/${issueNumber}`;
   try {
     const data = await githubRestJson<RestIssueForBody>(url);
-    return {
-      body: typeof data.body === "string" ? data.body : null,
-      state: typeof data.state === "string" ? data.state : null,
+    const title = typeof data.title === "string" ? data.title : `#${issueNumber}`;
+    const issueUrl =
+      typeof data.html_url === "string"
+        ? data.html_url
+        : `https://github.com/${owner}/${name}/issues/${issueNumber}`;
+    const stateDisc = typeof data.state === "string" ? data.state : "unknown";
+    const login = typeof data.user?.login === "string" ? data.user.login : null;
+    const labels = Array.isArray(data.labels)
+      ? data.labels
+          .map((l) => (typeof l?.name === "string" ? l.name : ""))
+          .filter(Boolean)
+      : [];
+
+    const hit: YdmIssueRepoResult = {
+      number: issueNumber,
+      title,
+      url: issueUrl,
+      state: stateDisc,
+      author: login,
+      labels,
+      repo: `${owner}/${name}`,
+      updatedAt: null,
     };
+
+    let body: string | null = null;
+    const rawBody = data.body;
+    if (typeof rawBody === "string") {
+      body = rawBody;
+    }
+    const st = typeof data.state === "string" ? data.state : null;
+
+    return { hit, body, state: st };
   } catch {
     return null;
   }

@@ -8,6 +8,8 @@ Optional env (defaults in code): `WEBLATE_BASE_URL`, `WEBLATE_API_TOKEN`, `DISCO
 
 Optional **`visible`** on most slash commands: omit or false → only you see the reply; **`visible: true`** → channel-visible.
 
+Ephemeral search results can include **Showcase in channel** (server text channels only): posts the same preview publicly with attribution; the button payload is kept in memory for ~45 minutes.
+
 | Command | Purpose |
 |---------|---------|
 | `/disconite` `translate` [`visible`] | Info embed + link to [translate.disconite.net](https://translate.disconite.net). |

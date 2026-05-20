@@ -410,7 +410,7 @@ export class ResoniteSearchIssuesHandlers {
         details?.body ?? null,
       );
       const payload = ydmProjectItemReplyPayload(synthetic, {
-        ephemeral: false,
+        ephemeral: parentEphemeral,
       });
       await interaction.editReply({
         embeds: payload.embeds,
