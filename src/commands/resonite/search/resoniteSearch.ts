@@ -51,12 +51,15 @@ import {
   searchUsersByName,
 } from "../../../services/resonite/users/users.js";
 import {
+  buildWikiTableTextSections,
+  fetchWikiPageParsedHtml,
   fetchWikiPageWikitextIfExists,
   resolveWikiImageUrlFromWikitext,
   searchWikiTitles,
   type WikiSearchHit,
   wikiArticleUrl,
   wikiOpenSearchForAutocomplete,
+  wikitextNeedsParsedTables,
   wikitextToDiscordMarkdown,
 } from "../../../services/resonite/wiki/wikiSearch.js";
 import {
@@ -144,66 +147,81 @@ function decodeWikiPickFooter(text: string | null | undefined): WikiPickState | 
   }
 }
 
-async function replyWikiExactV2(
-  interaction: CommandInteraction,
-  exact: { title: string; wikitext: string },
-  visible: boolean | undefined,
-  previewLimit: number,
-): Promise<void> {
-  let titleLine = `# ${exact.title}`;
+async function buildWikiPreviewV2(opts: {
+  title: string;
+  wikitext: string;
+  previewLimit: number;
+}): Promise<ContainerBuilder> {
+  const { title, wikitext, previewLimit } = opts;
+  const needsTables = wikitextNeedsParsedTables(wikitext);
+  const tableBudget = needsTables ? Math.floor(previewLimit * 0.35) : 0;
+
+  let titleLine = `# ${title}`;
   if (titleLine.length > previewLimit) {
     titleLine = truncateEllipsis(titleLine, previewLimit);
   }
   const sep = titleLine.length < previewLimit ? "\n\n" : "";
-  const bodyBudget = Math.max(0, previewLimit - titleLine.length - sep.length);
+  const proseBudget = Math.max(
+    0,
+    previewLimit - titleLine.length - sep.length - tableBudget,
+  );
   const body =
-    bodyBudget > 0
-      ? wikitextToDiscordMarkdown(exact.wikitext, bodyBudget)
-      : "";
+    proseBudget > 0 ? wikitextToDiscordMarkdown(wikitext, proseBudget) : "";
   const content = body ? `${titleLine}${sep}${body}` : titleLine;
 
-  const imageUrl = await resolveWikiImageUrlFromWikitext(exact.wikitext);
+  const [imageUrl, parsedHtml] = await Promise.all([
+    resolveWikiImageUrlFromWikitext(wikitext),
+    needsTables ? fetchWikiPageParsedHtml(title) : Promise.resolve(null),
+  ]);
+
+  const tableSections =
+    parsedHtml && tableBudget > 0
+      ? buildWikiTableTextSections(wikitext, parsedHtml, tableBudget)
+      : [];
 
   const linkRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setStyle(ButtonStyle.Link)
       .setLabel("Open full page")
-      .setURL(wikiArticleUrl(exact.title)),
+      .setURL(wikiArticleUrl(title)),
   );
 
   const container = new ContainerBuilder();
   if (imageUrl) {
     const item = new MediaGalleryItemBuilder()
       .setURL(imageUrl)
-      .setDescription(truncateEllipsis(exact.title, 100));
+      .setDescription(truncateEllipsis(title, 100));
     container.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(item),
     );
   }
-  container
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(content))
-    .addActionRowComponents(linkRow);
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(truncateEllipsis(content, 4000)),
+  );
+  for (const section of tableSections) {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(section),
+    );
+  }
+  container.addActionRowComponents(linkRow);
+  return container;
+}
 
+async function replyWikiExactV2(
+  interaction: CommandInteraction,
+  exact: { title: string; wikitext: string },
+  visible: boolean | undefined,
+  previewLimit: number,
+): Promise<void> {
+  const container = await buildWikiPreviewV2({
+    title: exact.title,
+    wikitext: exact.wikitext,
+    previewLimit,
+  });
   await interaction.reply({
     components: [container],
     flags: wikiReplyFlags(visible, true),
   });
-}
-
-function buildWikiPreviewEmbed(
-  canonicalTitle: string,
-  wikitext: string,
-  previewLimit: number,
-  imageUrl: string | null,
-): EmbedBuilder {
-  const md = wikitextToDiscordMarkdown(wikitext, previewLimit);
-  const embed = new EmbedBuilder()
-    .setTitle(truncateEllipsis(canonicalTitle, 256))
-    .setDescription(truncateEllipsis(md, previewLimit));
-  if (imageUrl) {
-    embed.setImage(imageUrl);
-  }
-  return embed;
 }
 
 function buildWikiPickListMessage(
@@ -464,19 +482,14 @@ export class ResoniteSearchCommands {
         });
         return;
       }
-      const imageUrl = await resolveWikiImageUrlFromWikitext(page.wikitext);
-      const embed = buildWikiPreviewEmbed(
-        page.title,
-        page.wikitext,
-        pickState.previewLimit,
-        imageUrl,
-      );
-      const linkRow = linkButtonRow([
-        { label: "Open full page", url: wikiArticleUrl(page.title) },
-      ]);
+      const container = await buildWikiPreviewV2({
+        title: page.title,
+        wikitext: page.wikitext,
+        previewLimit: pickState.previewLimit,
+      });
       await interaction.editReply({
-        embeds: [embed],
-        components: linkRow ? [linkRow] : [],
+        components: [container],
+        flags: MessageFlags.IsComponentsV2,
       });
     } catch (err) {
       loggers.resonite.error("wiki pick menu failed", err, {});

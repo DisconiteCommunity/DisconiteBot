@@ -129,6 +129,204 @@ export function extractFirstWikiImageFileTitle(wikitext: string): string | null 
   return raw ? raw : null;
 }
 
+/** `|Image=` / `|image=` from the first `{{Infobox …}}` block (component pages). */
+export function extractInfoboxImageFileTitle(wikitext: string): string | null {
+  const m = wikitext.match(/\{\{Infobox[\s\S]*?\|Image\s*=\s*([^|\n}]+)/i);
+  const raw = m?.[1]?.trim();
+  return raw ? raw : null;
+}
+
+/** First wiki file reference: explicit `[[File:…]]`, else Infobox `|Image=`. */
+export function extractWikiImageFileTitleFromWikitext(
+  wikitext: string,
+): string | null {
+  return (
+    extractFirstWikiImageFileTitle(wikitext) ??
+    extractInfoboxImageFileTitle(wikitext)
+  );
+}
+
+/** True when rendered tables should be fetched (templates or wikitext tables). */
+export function wikitextNeedsParsedTables(wikitext: string): boolean {
+  return /\{\{Table\s/i.test(wikitext) || /^\{\|/m.test(wikitext);
+}
+
+export type WikiTableSection = {
+  heading?: string;
+  rows: string[][];
+};
+
+function stripHtmlCell(html: string): string {
+  return stripWikiSnippet(html.replace(/<br\s*\/?>/gi, " "));
+}
+
+/** Extract `table.wikitable` blocks from MediaWiki parse HTML. */
+export function extractWikitableSectionsFromHtml(
+  html: string,
+): WikiTableSection[] {
+  const sections: WikiTableSection[] = [];
+  const tableRe = /<table[^>]*\bwikitable\b[^>]*>([\s\S]*?)<\/table>/gi;
+  let tableMatch: RegExpExecArray | null;
+  while ((tableMatch = tableRe.exec(html)) !== null) {
+    const tableHtml = tableMatch[1] ?? "";
+    const rows: string[][] = [];
+    const trRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+    let trMatch: RegExpExecArray | null;
+    while ((trMatch = trRe.exec(tableHtml)) !== null) {
+      const cells: string[] = [];
+      const cellRe = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi;
+      let cellMatch: RegExpExecArray | null;
+      while ((cellMatch = cellRe.exec(trMatch[1] ?? "")) !== null) {
+        cells.push(stripHtmlCell(cellMatch[1] ?? ""));
+      }
+      if (cells.length > 0 && cells.some((c) => c.length > 0)) {
+        rows.push(cells);
+      }
+    }
+    if (rows.length === 0) {
+      continue;
+    }
+    let heading: string | undefined;
+    const first = rows[0]?.[0]?.trim() ?? "";
+    if (rows[0]?.length === 1 && /^(Fields|Values)$/i.test(first)) {
+      heading = first;
+      rows.shift();
+    }
+    sections.push({ heading, rows });
+  }
+  return sections;
+}
+
+/** Monospace table inside a fenced code block for Discord text displays. */
+export function formatWikiTableAsDiscordCodeBlock(
+  rows: string[][],
+  maxChars = 1800,
+): string {
+  if (rows.length === 0) {
+    return "";
+  }
+  const colCount = Math.max(...rows.map((r) => r.length), 0);
+  const widths = Array.from({ length: colCount }, (_, ci) =>
+    Math.min(
+      36,
+      Math.max(3, ...rows.map((r) => (r[ci] ?? "").length)),
+    ),
+  );
+  const lines = rows.map((row) =>
+    row
+      .map((cell, ci) => (cell ?? "").padEnd(widths[ci] ?? 3))
+      .join("  ")
+      .trimEnd(),
+  );
+  let body = lines.join("\n");
+  const fenceOverhead = 8;
+  if (body.length + fenceOverhead > maxChars) {
+    const maxBody = Math.max(0, maxChars - fenceOverhead);
+    body = truncateEllipsis(body, maxBody);
+  }
+  return `\`\`\`\n${body}\n\`\`\``;
+}
+
+function wikiTableSectionHeadingsFromWikitext(wikitext: string): string[] {
+  const heads: string[] = [];
+  const re = /^\s*==\s*([^=\n]+?)\s*==\s*$/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(wikitext)) !== null) {
+    const h = m[1]?.trim();
+    if (
+      h &&
+      !/^(Behavior|Examples|Related Components|See also)$/i.test(h)
+    ) {
+      heads.push(h);
+    }
+  }
+  return heads;
+}
+
+/** Text display bodies for each wikitable (heading + code block), within total budget. */
+export function buildWikiTableTextSections(
+  wikitext: string,
+  html: string,
+  budget: number,
+): string[] {
+  const sections = extractWikitableSectionsFromHtml(html);
+  if (sections.length === 0 || budget <= 0) {
+    return [];
+  }
+  const wikiHeadings = wikiTableSectionHeadingsFromWikitext(wikitext);
+  const perTable = Math.max(80, Math.floor(budget / sections.length));
+  const out: string[] = [];
+  for (let i = 0; i < sections.length; i++) {
+    const sec = sections[i];
+    if (!sec) {
+      continue;
+    }
+    const wikiHeading = wikiHeadings[i];
+    const block = formatWikiTableAsDiscordCodeBlock(sec.rows, perTable - 24);
+    if (!block) {
+      continue;
+    }
+    const labelParts: string[] = [];
+    if (wikiHeading) {
+      labelParts.push(wikiHeading);
+    }
+    if (sec.heading) {
+      labelParts.push(sec.heading);
+    }
+    const prefix =
+      labelParts.length > 0 ? `**${labelParts.join(" — ")}**\n` : "";
+    out.push(truncateEllipsis(`${prefix}${block}`, 4000));
+  }
+  return out;
+}
+
+/** Rendered article HTML via MediaWiki `action=parse`. */
+export async function fetchWikiPageParsedHtml(
+  title: string,
+): Promise<string | null> {
+  const t = title.trim();
+  if (!t) {
+    return null;
+  }
+  const url = new URL(WIKI_API);
+  url.searchParams.set("action", "parse");
+  url.searchParams.set("format", "json");
+  url.searchParams.set("page", t);
+  url.searchParams.set("prop", "text");
+  url.searchParams.set("disableeditsection", "1");
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), WIKI_SEARCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+        "User-Agent":
+          "DisconiteBot/1.0 (Discord; MediaWiki read-only public API)",
+      },
+    });
+    if (!res.ok) {
+      loggers.resonite.warn("wiki parse HTTP error", {
+        status: res.status,
+        title: t,
+      });
+      return null;
+    }
+    const data = (await res.json()) as {
+      parse?: { text?: { "*"?: string } };
+    };
+    const html = data.parse?.text?.["*"];
+    return typeof html === "string" ? html : null;
+  } catch (err) {
+    const name = err instanceof Error ? err.name : "Error";
+    loggers.resonite.warn("wiki parse failed", { title: t, name });
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function normalizeWikiFileQuery(fileTitle: string): string {
   let t = fileTitle.trim();
   if (/^image:/i.test(t)) {
@@ -205,7 +403,7 @@ export async function resolveWikiFileImageUrl(
 export async function resolveWikiImageUrlFromWikitext(
   wikitext: string,
 ): Promise<string | null> {
-  const name = extractFirstWikiImageFileTitle(wikitext);
+  const name = extractWikiImageFileTitleFromWikitext(wikitext);
   if (!name) {
     return null;
   }
