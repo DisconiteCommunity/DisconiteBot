@@ -7,12 +7,13 @@ import {
   vi,
 } from "vitest";
 import {
-  buildWikiTableTextSections,
+  buildOrderedWikiPreviewDisplays,
   extractInfoboxImageFileTitle,
   extractWikitableSectionsFromHtml,
   extractWikiImageFileTitleFromWikitext,
   fetchWikiPageWikitextIfExists,
   formatWikiTableAsDiscordCodeBlock,
+  parseWikitextByHeadings,
   wikitextNeedsParsedTables,
 } from "../../../../src/services/resonite/wiki/wikiSearch.js";
 import { loggers } from "../../../../src/utility/logging/logger.js";
@@ -137,17 +138,29 @@ describe("wikitable HTML parsing", () => {
     expect(block).toMatch(/\n```$/);
   });
 
-  it("builds labeled table sections from wikitext + HTML", () => {
+  it("parses wikitext sections in document order", () => {
+    const { preamble, sections } = parseWikitextByHeadings(
+      AVATAR_TOOL_ANCHOR_WIKITEXT,
+    );
+    expect(preamble).toContain("Avatar Tool anchor");
+    expect(sections.map((s) => s.heading)).toEqual(["Usage", "Point"]);
+  });
+
+  it("places each table under its section heading in reading order", () => {
     const html = `${USAGE_TABLE_HTML}${POINT_TABLE_HTML}`;
-    const displays = buildWikiTableTextSections(
+    const displays = buildOrderedWikiPreviewDisplays(
+      "Component:AvatarToolAnchor",
       AVATAR_TOOL_ANCHOR_WIKITEXT,
       html,
-      1200,
+      4000,
     );
     expect(displays.length).toBeGreaterThanOrEqual(2);
-    expect(displays[0]).toContain("**Usage");
-    expect(displays[0]).toContain("persistent");
-    expect(displays[1]).toContain("**Point");
-    expect(displays[1]).toContain("Tool");
+    const usageIdx = displays.findIndex((d) => d.includes("## Usage"));
+    const pointIdx = displays.findIndex((d) => d.includes("## Point"));
+    expect(usageIdx).toBeGreaterThanOrEqual(0);
+    expect(pointIdx).toBeGreaterThan(usageIdx);
+    expect(displays[usageIdx]).toMatch(/## Usage[\s\S]*persistent/);
+    expect(displays[pointIdx]).toMatch(/## Point[\s\S]*Tool/);
+    expect(displays[usageIdx]).not.toContain("## Point");
   });
 });

@@ -51,7 +51,7 @@ import {
   searchUsersByName,
 } from "../../../services/resonite/users/users.js";
 import {
-  buildWikiTableTextSections,
+  buildOrderedWikiPreviewDisplays,
   fetchWikiPageParsedHtml,
   fetchWikiPageWikitextIfExists,
   resolveWikiImageUrlFromWikitext,
@@ -60,7 +60,6 @@ import {
   wikiArticleUrl,
   wikiOpenSearchForAutocomplete,
   wikitextNeedsParsedTables,
-  wikitextToDiscordMarkdown,
 } from "../../../services/resonite/wiki/wikiSearch.js";
 import {
   WIKI_PAGE_PICK_MENU_ID,
@@ -154,30 +153,18 @@ async function buildWikiPreviewV2(opts: {
 }): Promise<ContainerBuilder> {
   const { title, wikitext, previewLimit } = opts;
   const needsTables = wikitextNeedsParsedTables(wikitext);
-  const tableBudget = needsTables ? Math.floor(previewLimit * 0.35) : 0;
-
-  let titleLine = `# ${title}`;
-  if (titleLine.length > previewLimit) {
-    titleLine = truncateEllipsis(titleLine, previewLimit);
-  }
-  const sep = titleLine.length < previewLimit ? "\n\n" : "";
-  const proseBudget = Math.max(
-    0,
-    previewLimit - titleLine.length - sep.length - tableBudget,
-  );
-  const body =
-    proseBudget > 0 ? wikitextToDiscordMarkdown(wikitext, proseBudget) : "";
-  const content = body ? `${titleLine}${sep}${body}` : titleLine;
 
   const [imageUrl, parsedHtml] = await Promise.all([
     resolveWikiImageUrlFromWikitext(wikitext),
     needsTables ? fetchWikiPageParsedHtml(title) : Promise.resolve(null),
   ]);
 
-  const tableSections =
-    parsedHtml && tableBudget > 0
-      ? buildWikiTableTextSections(wikitext, parsedHtml, tableBudget)
-      : [];
+  const textDisplays = buildOrderedWikiPreviewDisplays(
+    title,
+    wikitext,
+    parsedHtml,
+    previewLimit,
+  );
 
   const linkRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -195,12 +182,9 @@ async function buildWikiPreviewV2(opts: {
       new MediaGalleryBuilder().addItems(item),
     );
   }
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(truncateEllipsis(content, 4000)),
-  );
-  for (const section of tableSections) {
+  for (const text of textDisplays) {
     container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(section),
+      new TextDisplayBuilder().setContent(text),
     );
   }
   container.addActionRowComponents(linkRow);

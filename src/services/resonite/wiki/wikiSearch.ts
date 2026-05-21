@@ -227,57 +227,124 @@ export function formatWikiTableAsDiscordCodeBlock(
   return `\`\`\`\n${body}\n\`\`\``;
 }
 
-function wikiTableSectionHeadingsFromWikitext(wikitext: string): string[] {
-  const heads: string[] = [];
-  const re = /^\s*==\s*([^=\n]+?)\s*==\s*$/gm;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(wikitext)) !== null) {
-    const h = m[1]?.trim();
-    if (
-      h &&
-      !/^(Behavior|Examples|Related Components|See also)$/i.test(h)
-    ) {
-      heads.push(h);
-    }
+export type WikitextSection = {
+  heading: string;
+  /** Number of `=` characters in the wikitext heading (2 → `##`, etc.). */
+  level: number;
+  body: string;
+};
+
+/** Split article wikitext into preamble and `== … ==` sections (document order). */
+export function parseWikitextByHeadings(wikitext: string): {
+  preamble: string;
+  sections: WikitextSection[];
+} {
+  const normalized = wikitext.replace(/\r\n/g, "\n");
+  const headingRe = /^\s*(={2,6})\s*([^=\n]+?)\s*\1\s*$/gm;
+  const matches = [...normalized.matchAll(headingRe)];
+  if (matches.length === 0) {
+    return { preamble: normalized.trim(), sections: [] };
   }
-  return heads;
+  const first = matches[0];
+  const preamble = normalized.slice(0, first?.index ?? 0).trim();
+  const sections: WikitextSection[] = [];
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    if (!m) {
+      continue;
+    }
+    const eq = m[1] ?? "==";
+    const start = (m.index ?? 0) + m[0].length;
+    const next = matches[i + 1];
+    const end = next?.index ?? normalized.length;
+    sections.push({
+      heading: (m[2] ?? "").trim(),
+      level: eq.length,
+      body: normalized.slice(start, end).trim(),
+    });
+  }
+  return { preamble, sections };
 }
 
-/** Text display bodies for each wikitable (heading + code block), within total budget. */
-export function buildWikiTableTextSections(
+function sectionBodyHasTableTemplate(body: string): boolean {
+  return /\{\{Table\s/i.test(body) || /^\{\|/m.test(body);
+}
+
+function stripTableTemplatesFromSection(body: string): string {
+  return body.replace(/\{\{Table[\s\S]*?\}\}/gi, "").trim();
+}
+
+function markdownHeading(level: number, title: string): string {
+  const hashes = "#".repeat(Math.min(Math.max(level, 2), 6));
+  return `${hashes} ${title}`;
+}
+
+/**
+ * Components v2 text displays in reading order: title/intro, then each
+ * `== Section ==` with its table immediately under that section's heading.
+ */
+export function buildOrderedWikiPreviewDisplays(
+  title: string,
   wikitext: string,
-  html: string,
-  budget: number,
+  html: string | null,
+  previewLimit: number,
 ): string[] {
-  const sections = extractWikitableSectionsFromHtml(html);
-  if (sections.length === 0 || budget <= 0) {
-    return [];
+  const tables = html ? extractWikitableSectionsFromHtml(html) : [];
+  const { preamble, sections } = parseWikitextByHeadings(wikitext);
+  const parts: string[] = [];
+  let tableIdx = 0;
+
+  const intro =
+    preamble.length > 0
+      ? wikitextToDiscordMarkdown(preamble, previewLimit)
+      : "";
+  const lead = intro.trim() ? `# ${title}\n\n${intro}` : `# ${title}`;
+  parts.push(lead);
+
+  for (const section of sections) {
+    const hasTable = sectionBodyHasTableTemplate(section.body);
+    const proseSource = stripTableTemplatesFromSection(section.body);
+    const head = markdownHeading(section.level, section.heading);
+    const chunks: string[] = [head];
+
+    if (proseSource.length > 0) {
+      const prose = wikitextToDiscordMarkdown(proseSource, previewLimit);
+      if (prose.trim()) {
+        chunks.push(prose);
+      }
+    }
+
+    if (hasTable && tableIdx < tables.length) {
+      const tbl = tables[tableIdx];
+      tableIdx += 1;
+      if (tbl) {
+        if (tbl.heading) {
+          chunks.push(`*${tbl.heading}*`);
+        }
+        const block = formatWikiTableAsDiscordCodeBlock(tbl.rows, previewLimit);
+        if (block) {
+          chunks.push(block);
+        }
+      }
+    }
+
+    parts.push(chunks.join("\n\n"));
   }
-  const wikiHeadings = wikiTableSectionHeadingsFromWikitext(wikitext);
-  const perTable = Math.max(80, Math.floor(budget / sections.length));
-  const out: string[] = [];
-  for (let i = 0; i < sections.length; i++) {
-    const sec = sections[i];
-    if (!sec) {
+
+  const displays: string[] = [];
+  let remaining = previewLimit;
+  for (const part of parts) {
+    if (remaining <= 0) {
+      break;
+    }
+    const chunk = truncateEllipsis(part, Math.min(remaining, 4000));
+    if (!chunk.trim()) {
       continue;
     }
-    const wikiHeading = wikiHeadings[i];
-    const block = formatWikiTableAsDiscordCodeBlock(sec.rows, perTable - 24);
-    if (!block) {
-      continue;
-    }
-    const labelParts: string[] = [];
-    if (wikiHeading) {
-      labelParts.push(wikiHeading);
-    }
-    if (sec.heading) {
-      labelParts.push(sec.heading);
-    }
-    const prefix =
-      labelParts.length > 0 ? `**${labelParts.join(" — ")}**\n` : "";
-    out.push(truncateEllipsis(`${prefix}${block}`, 4000));
+    displays.push(chunk);
+    remaining -= chunk.length;
   }
-  return out;
+  return displays;
 }
 
 /** Rendered article HTML via MediaWiki `action=parse`. */
