@@ -198,7 +198,7 @@ jobs:
 
       - name: Upload Vitest JSON
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vitest-${{ github.run_id }}-${{ github.run_attempt }}
           path: test-results/vitest-results.json
@@ -206,7 +206,7 @@ jobs:
 
       - name: Upload coverage
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ github.run_id }}-${{ github.run_attempt }}
           path: coverage
@@ -268,7 +268,7 @@ jobs:
 
       - run: npm run build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: build-${{ github.run_id }}-${{ github.run_attempt }}
           path: build
