@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   addCachedMessage,
+  collectAuthorEntries,
+  dedupeMessages,
   detectSpamCluster,
   isRecentlyHandled,
   markHandled,
@@ -76,5 +78,25 @@ describe("messageCache", () => {
 
     expect(isRecentlyHandled("g1", "u1", "fp", now)).toBe(true);
     expect(detectSpamCluster("g1", "u1", "fp", config, now)).toBeNull();
+  });
+
+  it("collects all entries for an author", () => {
+    addEntry("g1", "u1", "fp1", "c1", "m1", 100);
+    addEntry("g1", "u1", "fp2", "c2", "m2", 200);
+    addEntry("g1", "u2", "fp1", "c3", "m3", 300);
+
+    expect(collectAuthorEntries("g1", "u1")).toHaveLength(2);
+    expect(collectAuthorEntries("g1", "u2")).toHaveLength(1);
+  });
+
+  it("dedupes messages by message ID", () => {
+    const messages = dedupeMessages([
+      { messageId: "m1", channelId: "c1", authorId: "u1", fingerprint: "fp", createdAt: 1 },
+      { messageId: "m1", channelId: "c1", authorId: "u1", fingerprint: "fp", createdAt: 1 },
+      { messageId: "m2", channelId: "c2", authorId: "u1", fingerprint: "fp", createdAt: 2 },
+    ]);
+
+    expect(messages).toHaveLength(2);
+    expect(messages.map((message) => message.messageId)).toEqual(["m1", "m2"]);
   });
 });

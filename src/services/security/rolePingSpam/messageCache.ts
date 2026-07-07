@@ -201,6 +201,56 @@ export function detectSpamCluster(
   };
 }
 
+/** Returns all cached spam entries for an author in a guild. */
+export function collectAuthorEntries(
+  guildId: string,
+  authorId: string,
+): CachedSpamMessage[] {
+  return (guildEntries.get(guildId) ?? []).filter(
+    (entry) => entry.authorId === authorId,
+  );
+}
+
+export function dedupeMessages(messages: CachedSpamMessage[]): CachedSpamMessage[] {
+  const seen = new Set<string>();
+  const result: CachedSpamMessage[] = [];
+  for (const message of messages) {
+    if (seen.has(message.messageId)) {
+      continue;
+    }
+    seen.add(message.messageId);
+    result.push(message);
+  }
+  return result;
+}
+
+export function removeMessagesByIds(
+  guildId: string,
+  messageIds: string[],
+  debugLogging?: boolean,
+): void {
+  const removeIds = new Set(messageIds);
+  const entries = guildEntries.get(guildId);
+  if (!entries) {
+    return;
+  }
+  const kept = entries.filter((entry) => !removeIds.has(entry.messageId));
+  const removed = entries.length - kept.length;
+
+  rolePingSpamDebug(debugLogging, "Removed messages from cache by ID", {
+    guildId,
+    removed,
+    remaining: kept.length,
+    messageIds,
+  });
+
+  if (kept.length === 0) {
+    guildEntries.delete(guildId);
+  } else {
+    guildEntries.set(guildId, kept);
+  }
+}
+
 export function removeClusterMessages(
   cluster: SpamCluster,
   debugLogging?: boolean,
@@ -229,6 +279,11 @@ export function removeClusterMessages(
 /** Test helper — clears all in-memory state. */
 export function resetMessageCacheForTests(): void {
   guildEntries.clear();
+  handledKeys.clear();
+}
+
+/** Test helper — clears handled-key debounce state only. */
+export function resetHandledKeysForTests(): void {
   handledKeys.clear();
 }
 

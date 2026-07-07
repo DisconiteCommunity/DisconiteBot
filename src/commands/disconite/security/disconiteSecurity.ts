@@ -19,6 +19,11 @@ import {
 } from "../../../services/guildSettings/rolePingSpamExtras.js";
 import { pruneGuildSettingsIfUnused } from "../../../services/guildSettings/pruneGuildSettingsIfUnused.js";
 import { setRolePingSpamConfig } from "../../../services/security/rolePingSpam/configCache.js";
+import {
+  formatMissingRolePingSpamPermissionsMessage,
+  getMissingRolePingSpamPermissions,
+} from "../../../services/security/rolePingSpam/botPermissions.js";
+import { maybeAutoDisableRolePingSpam } from "../../../services/security/rolePingSpam/permissionSync.js";
 import { slashCommandUserInstallScope } from "../../../config/discordSlashInstall.js";
 import { loggers } from "../../../utility/logging/logger.js";
 
@@ -44,6 +49,21 @@ function requireGuildAdminContext(
   return { guildId: guild.id };
 }
 
+function requireRolePingSpamBotPermissions(
+  interaction: CommandInteraction,
+): boolean {
+  const missing = getMissingRolePingSpamPermissions(interaction.guild?.members.me);
+  if (missing.length === 0) {
+    return true;
+  }
+
+  void interaction.reply({
+    content: formatMissingRolePingSpamPermissionsMessage(missing),
+    flags: MessageFlags.Ephemeral,
+  });
+  return false;
+}
+
 function formatConfigStatus(
   config: NonNullable<ReturnType<typeof readRolePingSpamConfig>>,
 ): string {
@@ -65,21 +85,6 @@ function formatConfigStatus(
     `**Debug logging:** ${config.debugLogging ? "on" : "off"}`,
   ];
   return lines.join("\n");
-}
-
-function botPermissionWarnings(interaction: CommandInteraction): string[] {
-  const me = interaction.guild?.members.me;
-  if (!me) {
-    return [];
-  }
-  const warnings: string[] = [];
-  if (!me.permissions.has(PermissionFlagsBits.ManageMessages)) {
-    warnings.push("Bot lacks **Manage Messages** — spam messages may not be deleted.");
-  }
-  if (!me.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-    warnings.push("Bot lacks **Moderate Members** — violators may not be timed out.");
-  }
-  return warnings;
 }
 
 @Discord()
@@ -124,6 +129,9 @@ export class DisconiteSecurityCommands {
     if (!ctx) {
       return;
     }
+    if (!requireRolePingSpamBotPermissions(interaction)) {
+      return;
+    }
 
     try {
       const existing = await prisma.guildSettings.findUnique({
@@ -143,14 +151,9 @@ export class DisconiteSecurityCommands {
 
       setRolePingSpamConfig(ctx.guildId, config);
 
-      const warnings = botPermissionWarnings(interaction);
-      const warningText =
-        warnings.length > 0 ? `\n\n⚠️ ${warnings.join("\n⚠️ ")}` : "";
-
       await interaction.reply({
         content:
-          `Compromised account spam protection is **enabled**. Mod log: <#${modLogChannel.id}>.` +
-          warningText,
+          `Compromised account spam protection is **enabled**. Mod log: <#${modLogChannel.id}>.`,
         flags: MessageFlags.Ephemeral,
       });
     } catch (err) {
@@ -230,17 +233,22 @@ export class DisconiteSecurityCommands {
         return;
       }
 
-      const warnings = botPermissionWarnings(interaction);
+      const missing = getMissingRolePingSpamPermissions(interaction.guild?.members.me);
+      if (missing.length > 0) {
+        if (interaction.guild) {
+          await maybeAutoDisableRolePingSpam(prisma, interaction.guild);
+        }
+        await interaction.reply({
+          content:
+            `Protection was **auto-disabled** because the bot is missing required permissions.\n\n${formatMissingRolePingSpamPermissionsMessage(missing)}`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
       const embed = new EmbedBuilder()
         .setTitle("Compromised account spam protection")
         .setDescription(formatConfigStatus(config));
-
-      if (warnings.length > 0) {
-        embed.addFields({
-          name: "Bot permission warnings",
-          value: warnings.map((warning) => `• ${warning}`).join("\n"),
-        });
-      }
 
       await interaction.reply({
         embeds: [embed],
@@ -305,6 +313,10 @@ export class DisconiteSecurityCommands {
         return;
       }
 
+      if (current.enabled && !requireRolePingSpamBotPermissions(interaction)) {
+        return;
+      }
+
       const { extras, config } = mergeRolePingSpamConfig(existing?.extras, {
         modLogChannelId: channel.id,
         enabled: current.enabled,
@@ -315,7 +327,9 @@ export class DisconiteSecurityCommands {
         create: { guildId: ctx.guildId, extras: extrasToPrismaUpdate(extras) },
         update: { extras: extrasToPrismaUpdate(extras) },
       });
-      setRolePingSpamConfig(ctx.guildId, config);
+      if (config.enabled) {
+        setRolePingSpamConfig(ctx.guildId, config);
+      }
 
       await interaction.reply({
         content: `Mod log channel set to <#${channel.id}>.`,
@@ -374,6 +388,10 @@ export class DisconiteSecurityCommands {
         return;
       }
 
+      if (current.enabled && !requireRolePingSpamBotPermissions(interaction)) {
+        return;
+      }
+
       const { extras, config } = mergeRolePingSpamConfig(existing?.extras, {
         modLogChannelId: current.modLogChannelId,
         enabled: current.enabled,
@@ -385,7 +403,9 @@ export class DisconiteSecurityCommands {
         create: { guildId: ctx.guildId, extras: extrasToPrismaUpdate(extras) },
         update: { extras: extrasToPrismaUpdate(extras) },
       });
-      setRolePingSpamConfig(ctx.guildId, config);
+      if (config.enabled) {
+        setRolePingSpamConfig(ctx.guildId, config);
+      }
 
       await interaction.reply({
         content: `Mod ping role set to <@&${role.id}>.`,
@@ -495,6 +515,9 @@ export class DisconiteSecurityCommands {
         });
         return;
       }
+      if (!requireRolePingSpamBotPermissions(interaction)) {
+        return;
+      }
 
       const { extras, config } = mergeRolePingSpamConfig(existing?.extras, {
         modLogChannelId: current.modLogChannelId,
@@ -555,6 +578,9 @@ export class DisconiteSecurityCommands {
   ): Promise<void> {
     const ctx = requireGuildAdminContext(interaction);
     if (!ctx) {
+      return;
+    }
+    if (!requireRolePingSpamBotPermissions(interaction)) {
       return;
     }
 
@@ -641,6 +667,9 @@ export class DisconiteSecurityCommands {
   ): Promise<void> {
     const ctx = requireGuildAdminContext(interaction);
     if (!ctx) {
+      return;
+    }
+    if (!requireRolePingSpamBotPermissions(interaction)) {
       return;
     }
 

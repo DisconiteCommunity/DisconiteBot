@@ -1,5 +1,7 @@
 import type { PrismaClient } from "../../../generated/prisma/client.js";
+import type { Client } from "discord.js";
 import { readRolePingSpamConfig } from "../../guildSettings/rolePingSpamExtras.js";
+import { filterRolePingSpamConfigForGuild } from "./permissionSync.js";
 import type { RolePingSpamConfig } from "./types.js";
 
 const configByGuild = new Map<string, RolePingSpamConfig>();
@@ -25,6 +27,7 @@ export function setRolePingSpamConfig(
 
 export async function loadRolePingSpamConfigCache(
   db: PrismaClient,
+  client?: Client,
 ): Promise<void> {
   configByGuild.clear();
   const rows = await db.guildSettings.findMany({
@@ -35,6 +38,20 @@ export async function loadRolePingSpamConfigCache(
     if (row.extras === null || row.extras === undefined) {
       continue;
     }
+
+    if (client) {
+      const config = await filterRolePingSpamConfigForGuild(
+        db,
+        client,
+        row.guildId,
+        row.extras,
+      );
+      if (config) {
+        configByGuild.set(row.guildId, config);
+      }
+      continue;
+    }
+
     const config = readRolePingSpamConfig(row.extras);
     if (config?.enabled) {
       configByGuild.set(row.guildId, config);

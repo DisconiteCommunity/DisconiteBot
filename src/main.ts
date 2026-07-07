@@ -73,7 +73,7 @@ bot.once("clientReady", async () => {
   }
 
   startResoniteMetricsPoller(bot, prisma);
-  await loadRolePingSpamConfigCache(prisma);
+  await loadRolePingSpamConfigCache(prisma, bot);
   startRolePingSpamCacheJanitor();
 });
 

@@ -1,7 +1,15 @@
 import { Discord, On } from "discordx";
 import type { Message } from "discord.js";
+import { prisma } from "../../../main.js";
 import { loggers } from "../../../utility/logging/logger.js";
 import { getRolePingSpamConfig } from "../../../services/security/rolePingSpam/configCache.js";
+import {
+  enqueueMessageDuringEnforcement,
+  isAuthorUnderEnforcement,
+  orchestrateSpamEnforcement,
+} from "../../../services/security/rolePingSpam/authorEnforcement.js";
+import { hasRolePingSpamPermissions } from "../../../services/security/rolePingSpam/botPermissions.js";
+import { maybeAutoDisableRolePingSpam } from "../../../services/security/rolePingSpam/permissionSync.js";
 import { rolePingSpamDebug } from "../../../services/security/rolePingSpam/debugLog.js";
 import {
   fingerprintFromMessage,
@@ -12,11 +20,8 @@ import {
 import {
   addCachedMessage,
   detectSpamCluster,
-  markHandled,
   pruneGuildEntries,
-  removeClusterMessages,
 } from "../../../services/security/rolePingSpam/messageCache.js";
-import { enforceSpamCluster } from "../../../services/security/rolePingSpam/enforcer.js";
 import { isDryRunUser } from "../../../services/security/rolePingSpam/types.js";
 
 @Discord()
@@ -30,6 +35,11 @@ export class RolePingSpamProtectionEvent {
     const guildId = message.guild.id;
     const config = getRolePingSpamConfig(guildId);
     if (!config) {
+      return;
+    }
+
+    if (!hasRolePingSpamPermissions(message.guild.members.me)) {
+      void maybeAutoDisableRolePingSpam(prisma, message.guild);
       return;
     }
 
@@ -68,6 +78,30 @@ export class RolePingSpamProtectionEvent {
     const now = Date.now();
     pruneGuildEntries(guildId, config.cacheRetentionMs, now, debug);
 
+    if (isAuthorUnderEnforcement(guildId, message.author.id)) {
+      enqueueMessageDuringEnforcement(guildId, message.author.id, {
+        messageId: message.id,
+        channelId: message.channelId,
+        authorId: message.author.id,
+        fingerprint,
+        createdAt: now,
+      });
+      void message.delete().catch((error) => {
+        loggers.moderation.warn("Failed to delete spam message during enforcement", {
+          guildId,
+          messageId: message.id,
+          channelId: message.channelId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+      rolePingSpamDebug(debug, "Message queued during active enforcement", {
+        ...baseContext,
+        fingerprint,
+        imageCount,
+      });
+      return;
+    }
+
     rolePingSpamDebug(debug, "Message candidate accepted", {
       ...baseContext,
       fingerprint,
@@ -98,26 +132,23 @@ export class RolePingSpamProtectionEvent {
       return;
     }
 
-    markHandled(
+    const dryRun = isDryRunUser(config, cluster.authorId);
+    rolePingSpamDebug(debug, "Starting spam enforcement", {
       guildId,
-      cluster.authorId,
-      cluster.fingerprint,
-      config.cacheRetentionMs,
-      now,
-      debug,
-    );
-    removeClusterMessages(cluster, debug);
+      authorId: cluster.authorId,
+      fingerprint: cluster.fingerprint,
+      messageCount: cluster.messages.length,
+      dryRun,
+    });
 
     try {
-      const dryRun = isDryRunUser(config, cluster.authorId);
-      rolePingSpamDebug(debug, "Enforcing spam cluster", {
-        guildId,
-        authorId: cluster.authorId,
-        fingerprint: cluster.fingerprint,
-        messageCount: cluster.messages.length,
+      await orchestrateSpamEnforcement(
+        message.guild,
+        cluster,
+        config,
         dryRun,
-      });
-      await enforceSpamCluster(message.guild, cluster, config, { dryRun });
+        debug,
+      );
     } catch (error) {
       loggers.moderation.error(
         "Failed to enforce compromised account spam protection",
