@@ -16,6 +16,8 @@ import { BOT_INTENTS, BOT_CONFIG } from "./config/discord.js";
 import { createApiRouter } from "./api/routes.js";
 import { startResoniteMetricsPoller } from "./services/resonite/metrics/resoniteMetricsPoller.js";
 import { slashCommandLoggingGuard } from "./utility/discord/slashCommandLoggingGuard.js";
+import { loadRolePingSpamConfigCache } from "./services/security/rolePingSpam/configCache.js";
+import { startRolePingSpamCacheJanitor } from "./services/security/rolePingSpam/janitor.js";
 
 let env;
 try {
@@ -71,6 +73,8 @@ bot.once("clientReady", async () => {
   }
 
   startResoniteMetricsPoller(bot, prisma);
+  await loadRolePingSpamConfigCache(prisma);
+  startRolePingSpamCacheJanitor();
 });
 
 bot.on("interactionCreate", async (interaction: Interaction) => {
