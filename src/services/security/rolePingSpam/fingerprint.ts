@@ -19,9 +19,12 @@ export function countImageAttachments(
   return count;
 }
 
-export function hasRoleMention(message: Pick<Message, "mentions">): boolean {
-  return message.mentions.roles.size > 0;
+export function hasSpamPingMention(message: Pick<Message, "mentions">): boolean {
+  return message.mentions.roles.size > 0 || message.mentions.everyone;
 }
+
+/** Includes role pings, @everyone, and @here. */
+export const hasRoleMention = hasSpamPingMention;
 
 export function buildMessageFingerprint(input: MessageFingerprintInput): string {
   const roleIds = [...input.roleIds].sort();
@@ -34,7 +37,7 @@ export function buildMessageFingerprint(input: MessageFingerprintInput): string 
 }
 
 export function fingerprintFromMessage(message: Message): string | null {
-  if (!hasRoleMention(message)) {
+  if (!hasSpamPingMention(message)) {
     return null;
   }
 

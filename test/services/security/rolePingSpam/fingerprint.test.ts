@@ -4,6 +4,7 @@ import {
   countImageAttachments,
   fingerprintFromMessage,
   hasRoleMention,
+  hasSpamPingMention,
 } from "../../../../src/services/security/rolePingSpam/fingerprint.js";
 import { Collection } from "discord.js";
 
@@ -15,6 +16,7 @@ function mockMessage(partial: {
   authorId: string;
   content: string;
   roleIds?: string[];
+  mentionsEveryone?: boolean;
   attachments?: ReturnType<typeof mockAttachment>[];
 }) {
   const roles = new Collection<string, { id: string }>();
@@ -28,7 +30,7 @@ function mockMessage(partial: {
   return {
     author: { id: partial.authorId },
     content: partial.content,
-    mentions: { roles },
+    mentions: { roles, everyone: partial.mentionsEveryone ?? false },
     attachments,
   } as Parameters<typeof fingerprintFromMessage>[0];
 }
@@ -47,6 +49,63 @@ describe("fingerprint", () => {
     const withoutRole = mockMessage({ authorId: "u1", content: "hi" });
     expect(hasRoleMention(withRole)).toBe(true);
     expect(hasRoleMention(withoutRole)).toBe(false);
+  });
+
+  it("detects @everyone and @here via mentions.everyone", () => {
+    const everyone = mockMessage({
+      authorId: "u1",
+      content: "@everyone",
+      mentionsEveryone: true,
+    });
+    const here = mockMessage({
+      authorId: "u1",
+      content: "@here",
+      mentionsEveryone: true,
+    });
+    expect(hasSpamPingMention(everyone)).toBe(true);
+    expect(hasSpamPingMention(here)).toBe(true);
+  });
+
+  it("fingerprints @everyone spam with images", () => {
+    const fp = fingerprintFromMessage(
+      mockMessage({
+        authorId: "u1",
+        content: "@everyone",
+        mentionsEveryone: true,
+        attachments: [
+          mockAttachment("image/png", "https://a/1.png"),
+          mockAttachment("image/png", "https://a/2.png"),
+        ],
+      }),
+    );
+    expect(fp).toContain("u1");
+    expect(fp).toContain("@everyone");
+  });
+
+  it("matches cross-channel @here spam with different attachment URLs", () => {
+    const channelA = fingerprintFromMessage(
+      mockMessage({
+        authorId: "u1",
+        content: "@here",
+        mentionsEveryone: true,
+        attachments: [
+          mockAttachment("image/png", "https://cdn.discordapp.com/attachments/ch1/a/image.png"),
+          mockAttachment("image/png", "https://cdn.discordapp.com/attachments/ch1/b/image.png"),
+        ],
+      }),
+    );
+    const channelB = fingerprintFromMessage(
+      mockMessage({
+        authorId: "u1",
+        content: "@here",
+        mentionsEveryone: true,
+        attachments: [
+          mockAttachment("image/png", "https://cdn.discordapp.com/attachments/ch2/c/image.png"),
+          mockAttachment("image/png", "https://cdn.discordapp.com/attachments/ch2/d/image.png"),
+        ],
+      }),
+    );
+    expect(channelA).toBe(channelB);
   });
 
   it("builds stable fingerprints regardless of role order", () => {
@@ -91,7 +150,7 @@ describe("fingerprint", () => {
     expect(channelA).toBe(channelB);
   });
 
-  it("returns null when no role mention or no images", () => {
+  it("returns null when no ping mention or no images", () => {
     expect(
       fingerprintFromMessage(
         mockMessage({ authorId: "u1", content: "x", roleIds: ["r1"] }),

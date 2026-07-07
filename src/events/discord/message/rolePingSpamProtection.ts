@@ -13,7 +13,7 @@ import { maybeAutoDisableRolePingSpam } from "../../../services/security/rolePin
 import { rolePingSpamDebug } from "../../../services/security/rolePingSpam/debugLog.js";
 import {
   fingerprintFromMessage,
-  hasRoleMention,
+  hasSpamPingMention,
   messageMeetsImageThreshold,
   countImageAttachments,
 } from "../../../services/security/rolePingSpam/fingerprint.js";
@@ -51,14 +51,16 @@ export class RolePingSpamProtectionEvent {
       authorId: message.author.id,
     };
 
-    const hasRole = hasRoleMention(message);
+    const hasPing = hasSpamPingMention(message);
     const imageCount = countImageAttachments(message.attachments);
     const meetsImages = messageMeetsImageThreshold(message, config.minImages);
 
-    if (!hasRole || !meetsImages) {
+    if (!hasPing || !meetsImages) {
       rolePingSpamDebug(debug, "Message ignored (criteria not met)", {
         ...baseContext,
-        hasRoleMention: hasRole,
+        hasPingMention: hasPing,
+        mentionsEveryone: message.mentions.everyone,
+        roleMentionCount: message.mentions.roles.size,
         imageCount,
         requiredImages: config.minImages,
       });
@@ -69,7 +71,9 @@ export class RolePingSpamProtectionEvent {
     if (!fingerprint) {
       rolePingSpamDebug(debug, "Message ignored (no fingerprint)", {
         ...baseContext,
-        hasRoleMention: hasRole,
+        hasPingMention: hasPing,
+        mentionsEveryone: message.mentions.everyone,
+        roleMentionCount: message.mentions.roles.size,
         imageCount,
       });
       return;
@@ -106,6 +110,7 @@ export class RolePingSpamProtectionEvent {
       ...baseContext,
       fingerprint,
       imageCount,
+      mentionsEveryone: message.mentions.everyone,
       roleMentionCount: message.mentions.roles.size,
     });
 
