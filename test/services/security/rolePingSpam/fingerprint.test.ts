@@ -49,20 +49,46 @@ describe("fingerprint", () => {
     expect(hasRoleMention(withoutRole)).toBe(false);
   });
 
-  it("builds stable fingerprints regardless of role/image order", () => {
+  it("builds stable fingerprints regardless of role order", () => {
     const a = buildMessageFingerprint({
       authorId: "u1",
       content: "spam",
       roleIds: ["r2", "r1"],
-      imageUrls: ["https://b", "https://a"],
+      imageCount: 2,
     });
     const b = buildMessageFingerprint({
       authorId: "u1",
       content: "spam",
       roleIds: ["r1", "r2"],
-      imageUrls: ["https://a", "https://b"],
+      imageCount: 2,
     });
     expect(a).toBe(b);
+  });
+
+  it("matches cross-channel spam with different attachment URLs", () => {
+    const channelA = fingerprintFromMessage(
+      mockMessage({
+        authorId: "u1",
+        content: "<@&r1>",
+        roleIds: ["r1"],
+        attachments: [
+          mockAttachment("image/png", "https://cdn.discordapp.com/attachments/ch1/a/image.png"),
+          mockAttachment("image/png", "https://cdn.discordapp.com/attachments/ch1/b/image.png"),
+        ],
+      }),
+    );
+    const channelB = fingerprintFromMessage(
+      mockMessage({
+        authorId: "u1",
+        content: "<@&r1>",
+        roleIds: ["r1"],
+        attachments: [
+          mockAttachment("image/png", "https://cdn.discordapp.com/attachments/ch2/c/image.png"),
+          mockAttachment("image/png", "https://cdn.discordapp.com/attachments/ch2/d/image.png"),
+        ],
+      }),
+    );
+    expect(channelA).toBe(channelB);
   });
 
   it("returns null when no role mention or no images", () => {

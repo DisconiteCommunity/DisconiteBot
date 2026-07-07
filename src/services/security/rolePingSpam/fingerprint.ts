@@ -4,7 +4,7 @@ export interface MessageFingerprintInput {
   authorId: string;
   content: string;
   roleIds: string[];
-  imageUrls: string[];
+  imageCount: number;
 }
 
 export function countImageAttachments(
@@ -19,30 +19,16 @@ export function countImageAttachments(
   return count;
 }
 
-export function getImageAttachmentUrls(
-  attachments: Collection<string, { contentType: string | null; url: string }>,
-): string[] {
-  const urls: string[] = [];
-  for (const attachment of attachments.values()) {
-    if (attachment.contentType?.startsWith("image/")) {
-      urls.push(attachment.url);
-    }
-  }
-  urls.sort();
-  return urls;
-}
-
 export function hasRoleMention(message: Pick<Message, "mentions">): boolean {
   return message.mentions.roles.size > 0;
 }
 
 export function buildMessageFingerprint(input: MessageFingerprintInput): string {
   const roleIds = [...input.roleIds].sort();
-  const imageUrls = [...input.imageUrls].sort();
   return [
     input.authorId,
     input.content,
-    imageUrls.join("\x1f"),
+    String(input.imageCount),
     roleIds.join("\x1f"),
   ].join("\x1e");
 }
@@ -52,8 +38,8 @@ export function fingerprintFromMessage(message: Message): string | null {
     return null;
   }
 
-  const imageUrls = getImageAttachmentUrls(message.attachments);
-  if (imageUrls.length === 0) {
+  const imageCount = countImageAttachments(message.attachments);
+  if (imageCount === 0) {
     return null;
   }
 
@@ -62,7 +48,7 @@ export function fingerprintFromMessage(message: Message): string | null {
     authorId: message.author.id,
     content: message.content,
     roleIds,
-    imageUrls,
+    imageCount,
   });
 }
 
