@@ -62,6 +62,7 @@ function formatConfigStatus(
         ? config.dryRunUserIds.map((id) => `<@${id}>`).join(", ")
         : "none"
     }`,
+    `**Debug logging:** ${config.debugLogging ? "on" : "off"}`,
   ];
   return lines.join("\n");
 }
@@ -508,6 +509,7 @@ export class DisconiteSecurityCommands {
         ...(current.dryRunUserIds.length > 0
           ? { dryRunUserIds: current.dryRunUserIds }
           : {}),
+        ...(current.debugLogging ? { debugLogging: true } : {}),
       });
 
       await prisma.guildSettings.update({
@@ -617,6 +619,73 @@ export class DisconiteSecurityCommands {
       loggers.disconite.error("security dry-run failed", err, { guildId: ctx.guildId });
       await interaction.reply({
         content: "Could not update dry-run list.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+  }
+
+  @Slash({
+    name: "debug-logging",
+    description:
+      "Enable or disable verbose message-tracking logs for spam protection (bot console).",
+  })
+  async debugLogging(
+    @SlashOption({
+      name: "enabled",
+      description: "Turn debug logging on or off",
+      type: ApplicationCommandOptionType.Boolean,
+      required: true,
+    })
+    enabled: boolean,
+    interaction: CommandInteraction,
+  ): Promise<void> {
+    const ctx = requireGuildAdminContext(interaction);
+    if (!ctx) {
+      return;
+    }
+
+    try {
+      const existing = await prisma.guildSettings.findUnique({
+        where: { guildId: ctx.guildId },
+      });
+      const current = readRolePingSpamConfig(existing?.extras);
+      if (!current?.enabled || !current.modLogChannelId) {
+        await interaction.reply({
+          content:
+            "Protection is not enabled. Use **`/disconite security enable`** first.",
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const { extras, config } = mergeRolePingSpamConfig(existing?.extras, {
+        modLogChannelId: current.modLogChannelId,
+        enabled: true,
+        debugLogging: enabled,
+        ...(current.modPingRoleId ? { modPingRoleId: current.modPingRoleId } : {}),
+        ...(current.dryRunUserIds.length > 0
+          ? { dryRunUserIds: current.dryRunUserIds }
+          : {}),
+      });
+
+      await prisma.guildSettings.update({
+        where: { guildId: ctx.guildId },
+        data: { extras: extrasToPrismaUpdate(extras) },
+      });
+      setRolePingSpamConfig(ctx.guildId, config);
+
+      await interaction.reply({
+        content: enabled
+          ? "Debug logging is **on**. Message tracking will be logged to the bot console with prefix `RolePingSpam:`."
+          : "Debug logging is **off**.",
+        flags: MessageFlags.Ephemeral,
+      });
+    } catch (err) {
+      loggers.disconite.error("security debug-logging failed", err, {
+        guildId: ctx.guildId,
+      });
+      await interaction.reply({
+        content: "Could not update debug logging.",
         flags: MessageFlags.Ephemeral,
       });
     }

@@ -12,6 +12,7 @@ const config = {
   minMessages: 3,
   windowMs: 3000,
   cacheRetentionMs: 60_000,
+  debugLogging: false,
 };
 
 function addEntry(

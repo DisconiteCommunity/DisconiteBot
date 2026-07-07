@@ -15,6 +15,7 @@ function baseConfig(overrides: Partial<RolePingSpamConfig> = {}): RolePingSpamCo
     cacheRetentionMs: 60_000,
     timeoutMinutes: 1440,
     dryRunUserIds: [],
+    debugLogging: false,
     ...overrides,
   };
 }

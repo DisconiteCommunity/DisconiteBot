@@ -57,6 +57,7 @@ describe("rolePingSpamExtras", () => {
       enabled: true,
     });
     expect(config.dryRunUserIds).toEqual([]);
+    expect(config.debugLogging).toBe(false);
   });
 
   it("preserves dryRunUserIds when patching", () => {

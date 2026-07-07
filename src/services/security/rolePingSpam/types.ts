@@ -13,6 +13,7 @@ export const rolePingSpamConfigSchema = z.object({
   cacheRetentionMs: z.number().int().min(5000).default(60_000),
   timeoutMinutes: z.number().int().min(1).max(10_080).default(1440),
   dryRunUserIds: z.array(z.string().min(1)).default([]),
+  debugLogging: z.boolean().default(false),
 });
 
 export type RolePingSpamConfig = z.infer<typeof rolePingSpamConfigSchema>;
@@ -28,6 +29,7 @@ export const DEFAULT_ROLE_PING_SPAM_CONFIG: Omit<
   cacheRetentionMs: 60_000,
   timeoutMinutes: 1440,
   dryRunUserIds: [],
+  debugLogging: false,
 };
 
 export interface CachedSpamMessage {
